@@ -1,0 +1,33 @@
+#----------dir_name------------
+objfile_dir     '/Users/motomo/iriki/object'
+matrix_dir      '/Users/motomo/iriki/matrix'
+rawdata_infra   '/Users/motomo/iriki/kSIRIUS/{date}'
+rawdata_opt     '/Users/motomo/iriki/optcam/{date}'
+work_dir        '/Users/motomo/iriki/workdir/{objectname}/{date}'
+#----------download_param------------
+
+#----------flat_sky_param------------
+quicklook       0
+flatdiv         0
+cut             1
+gflip           1
+sub_skylev      1
+div_skylev      0
+custom_skylev   0
+skysub          1
+#----------starmatch_param------------
+starmatch       1
+#----------comb_phot_param----------
+comb_per_set    1
+comb_all        0
+aperture_phot   0
+#----------rm_result----------------
+row_fits        1
+cut_fits        1
+lev_fits        1
+sky_fits        0
+geo_fits        0
+
+coo_file        0
+match_file      1
+geo_file        1
