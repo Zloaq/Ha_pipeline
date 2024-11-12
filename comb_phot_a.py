@@ -22,10 +22,11 @@ def comb_pset(fitslist):
                 sep_bandset[f'{filename[:11]}-{obname}'] = []
             sep_bandset[f'{filename[:11]}-{obname}'].append(filename)
 
-    for nameid in tqdm(sep_bandset, desc='{:<13}'.format("combine")):
+    for nameid, varrlist in tqdm(sep_bandset.items(), desc='{:<13}'.format("combine")):
         #print(f'{nameid}\n{sep_bandset[nameid]}')
         outname = f'{nameid}.fits'
-        bottom_a.combine(sep_bandset[nameid], outname, 'average')
+        bottom_a.combine(varrlist, outname, 'average')
+
 
 
 def comb_all(fitslist, day, obname):
