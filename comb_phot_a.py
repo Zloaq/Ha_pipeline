@@ -18,7 +18,7 @@ def comb_pset(fitslist):
     for band in fitslist:
         header = bottom_a.readheader(fitslist[band])
         for filename, obname in zip(header.filename, header.object):
-            if f'{filename[:11]}-{obname}' not in sep_bandset:
+            if f'{filename[:11]}_{obname}' not in sep_bandset:
                 sep_bandset[f'{filename[:11]}-{obname}'] = []
             sep_bandset[f'{filename[:11]}-{obname}'].append(filename)
 
@@ -30,19 +30,9 @@ def comb_pset(fitslist):
 
 def comb_all(fitslist, day, obname):
 
-    sep_band = {}
-    header = bottom_a.readheader(fitslist)
-    unique_band = set(header.band)
-    uni_band = list(unique_band)
-
-    for band in uni_band:
-        sep_band[band] = [f'{band}{day}_{obname}.fits']
-    for index, fitsname in enumerate(fitslist):
-        band = header.band[index]
-        sep_band[band].append(fitsname)
-
-    for key in sep_band:
-        bottom_a.combine(sep_band[key][1:], sep_band[key][0], 'average')
+    for band, varrlist in tqdm(fitslist.items(), desc='{:<13}'.format("comb all")):
+        outname = f'{band}{day}_{obname}.fits'
+        bottom_a.combine(varrlist, outname, 'average')
 
 """
 def match_star_coords(fitslist, refcoofile, fwhms=[3, 4, 5]):

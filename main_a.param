@@ -7,7 +7,7 @@ work_dir        '/Users/motomo/iriki/workdir/{objectname}/{date}'
 #----------download_param------------
 
 #----------flat_sky_param------------
-quicklook       0
+quicklook       1
 flatdiv         0
 cut             1
 gflip           1
@@ -19,7 +19,7 @@ skysub          1
 starmatch       1
 #----------comb_phot_param----------
 comb_per_set    1
-comb_all        0
+comb_all        1
 aperture_phot   0
 #----------rm_result----------------
 row_fits        1

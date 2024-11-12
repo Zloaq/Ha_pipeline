@@ -15,14 +15,15 @@ from pyraf import iraf
 import bottom_a
 import flat_sky_a
 import starmatch_a
-import com_phot_a as com_p
+import starmatch_a_ql
+import comb_phot_a as com_p
 
 
 def do_init():
 
 	home_dir = os.path.expanduser("~")
 		
-	new_dir1 = os.path.join(home_dir, 'ku1mV')
+	new_dir1 = os.path.join(home_dir, 'pipeline_datahub')
 	new_dir2 = os.path.join(new_dir1, 'optcam')
 	new_dir3 = os.path.join(new_dir1, 'kSIRIUS')
 	new_dir4 = os.path.join(new_dir1, 'object')
@@ -428,9 +429,6 @@ def execute_code(param, objparam, log, bands=['haon_', 'haoff']):
 	fitslist = glob_latestproc2(bands, fitspro)
 	rename_object(fitslist)
 
-	if param.quicklook == 1:
-		print('yet yet yet')
-		sys.exit()
 
 	if param.flatdiv == 1:
 		print('yetyetyet')
@@ -473,11 +471,21 @@ def execute_code(param, objparam, log, bands=['haon_', 'haoff']):
 		header = readheader(fitslist)
 		flat_sky_a.method4(fitslist, header.object)
 		fitspro.append('sky')
-		
+	"""
 	if param.starmatch == 1:
 		fitslist = glob_latestproc2(bands, fitspro)
 		starmatch_a.main(fitslist, param)
 		fitspro.append('geo*')
+	"""
+	if param.starmatch == 1:
+		if param.quicklook == 1:
+			fitslist = glob_latestproc2(bands, fitspro)
+			starmatch_a_ql.main(fitslist, param)
+			fitspro.append('ql_geo*')
+		else:
+			fitslist = glob_latestproc2(bands, fitspro)
+			starmatch_a.main(fitslist, param)
+			fitspro.append('geo*')
 
 
 	if param.comb_per_set == 1:
@@ -485,9 +493,8 @@ def execute_code(param, objparam, log, bands=['haon_', 'haoff']):
 		com_p.comb_pset(fitslist)
 
 	if param.comb_all == 1:
-		print('comb_all')
-		fitslist = glob_latestproc(bands, fitspro)
-		com_p.comb_all(fitslist, argvs[1], argvs[2])
+		fitslist = glob_latestproc2(bands, fitspro)
+		com_p.comb_all(fitslist, argvs[2], argvs[1])
 
 	if param.aperture_phot == 1:
 		print('phot')
@@ -509,6 +516,8 @@ def execute_code(param, objparam, log, bands=['haon_', 'haoff']):
 		subprocess.run(f'rm {param.work_dir}/*.match', shell=True, stderr=subprocess.DEVNULL)
 	if param.geo_file == 1:
 		subprocess.run(f'rm {param.work_dir}/*.geo', shell=True, stderr=subprocess.DEVNULL)
+
+	print("end")
 
 
 
