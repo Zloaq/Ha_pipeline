@@ -100,7 +100,7 @@ def rename_object(fitslist):
 
 class readparam():
 
-	def __init__(self, date='None', objectname='None'):
+	def __init__(self, date='{date}', objectname='{objectname}'):
 		
 		path_program = os.path.abspath(__file__)
 		dir_of_program = os.path.dirname(path_program)

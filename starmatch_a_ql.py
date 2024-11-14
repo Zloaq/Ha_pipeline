@@ -605,8 +605,11 @@ def do_xyxymatch(param, optstarlist, optcoolist, infstarlist=[], infcoolist=[]):
         optbase = None
         
     else:
-        optcommon = set(optcoolist.values())
-        optbase = optcommon[list.index(max(optstarlist))]
+        optcommon = set(list(optcoolist.values())[0])
+        optstarlist_values = list(optstarlist.values())[0]
+        max_value = max(optstarlist_values)
+        max_index = optstarlist_values.index(max_value)
+        optbase = list(optcommon)[max_index][5:-4]
 
     for varr in optcoolist:
         print(f'{varr} base is {varr}{optbase}.fits')
