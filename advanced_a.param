@@ -4,33 +4,33 @@
           
 #--------saturation_count-----------
 
-haoff_satcount  38000
-haon__satcount  38000
+haoff_satcount       38000
+haon__satcount       38000
 
 #--------cut_param------------------
 
-haoff_cutrange      '[15:-13,15:-5]'
-haon__cutrange      '[15:-13,15:-5]'
+haoff_cutrange       '[15:-13,15:-5]'
+haon__cutrange       '[15:-13,15:-5]'
 
 
 #---------starfind-------------------
 
-haoff_maxstarnum    90
-haon__maxstarnum    90
+haoff_maxstarnum     90
+haon__maxstarnum     90
 
-haoff_minstarnum    90
-haon__minstarnum    90
+haoff_minstarnum     90
+haon__minstarnum     90
 
 #--------triangle_match-------------------
 
-haoff_threshold     1
-haon__threshold     1
+haoff_threshold      1
+haon__threshold      1
 
 
 #--------geotran_base-------------------
 
-tran_haoff      'haoff'
-tran_haon_      'haon_'
+tran_haoff           'haoff'
+tran_haon_           'haon_'
 
 
 #--------download_param------------
@@ -38,6 +38,6 @@ tran_haon_      'haon_'
 #--------pixel_scale-----------------
 
 
-pixscale_haon_  0.6
-pixscale_haoff  0.6
+pixscale_haon_       0.6
+pixscale_haoff       0.6
 
