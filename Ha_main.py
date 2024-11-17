@@ -399,34 +399,45 @@ def execute_code(param, objparam, log, bands=['haon_', 'haoff']):
 	
 	bands0 = ['haoff', 'haon']
 	bottom_a.setparam()
-	if log.log == 'exits':
-		fitspro = log.fitspro
-	else:
-		fitspro = []
-		fitslist = {}
-		obnamelist = {}
-		subprocess.run(f'rm {param.work_dir}/*.fits', shell=True)
-		if any(varr in bands0 for varr in ['haoff', 'haon']):
-			try:
-				iraf.chdir(param.rawdata_opt)
-				globlist = glob_latestproc2(bands0, fitspro)
-				#print(f'globlist\n{globlist}')
-			except:
-				#print(f'{param.rawdata_opt} is not exists.')
-				globlist = []
 
-			for band1 in globlist:
-				if band1 in ['haon', 'haoff']:
-					fitslist[band1], obnamelist[band1] = match_object(globlist[band1], objparam.SearchName)
-					if band1 == 'haon':
-						for varr in fitslist[band1]:
-							shutil.copy(varr, f'{param.work_dir}/haon_{varr[4:]}')
-					else:
-						for varr in fitslist[band1]:
-							shutil.copy(varr, param.work_dir)
+	fitspro = []
+	fitslist = {}
+	obnamelist = {}
+
+	if param.quicklook == 1:
+		print('quicklook mode')
+
+
+	if any(varr in bands0 for varr in ['haoff', 'haon']):
+		try:
+			iraf.chdir(param.rawdata_opt)
+			globlist = glob_latestproc2(bands0, fitspro)
+			#print(f'globlist\n{globlist}')
+		except:
+			#print(f'{param.rawdata_opt} is not exists.')
+			globlist = []
+
+	if globlist:
+		os.makedirs(path, exist_ok=True)
+		subprocess.run(f'rm {param.work_dir}/*.fits', shell=True, stderr=subprocess.DEVNULL)
+	else:
+		print(f'rowdata not exists.')
+		print(f'end')
+		sys.exit()
+
+	for band1 in globlist:
+		if band1 in ['haon', 'haoff']:
+			fitslist[band1], obnamelist[band1] = match_object(globlist[band1], objparam.SearchName)
+			if band1 == 'haon':
+				for varr in fitslist[band1]:
+					shutil.copy(varr, f'{param.work_dir}/haon_{varr[4:]}')
+			else:
+				for varr in fitslist[band1]:
+					shutil.copy(varr, param.work_dir)
 		
 
 	iraf.chdir(param.work_dir)
+	
 
 	fitslist = glob_latestproc2(bands, fitspro)
 	rename_object(fitslist)
