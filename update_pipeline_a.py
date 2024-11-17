@@ -116,7 +116,7 @@ def restore_lib_files(backup_dir, lib_dir):
     if os.path.exists(backup_dir):
         # バックアップディレクトリからlibディレクトリにコピー
         shutil.copytree(backup_dir, lib_dir, dirs_exist_ok=True)
-        print(f"lib directory restored from {backup_dir}")
+        #print(f"lib directory restored from {backup_dir}")
     else:
         print(f"Backup directory not found: {backup_dir}")
 
@@ -148,6 +148,15 @@ def restore_directory_names(file_path, dir_names):
 
 if __name__ == "__main__":
 
+    argvs = sys.argv
+    argc = len(argvs)
+    fitspro = []
+    init_flag = 0
+
+    if argc == 2:
+        if argvs[1] == 'init':
+            init_flag = 1
+
     path_program = os.path.abspath(__file__)
     dir_of_program = os.path.dirname(path_program)
     param_file = os.path.join(dir_of_program, 'main_a.param')
@@ -162,9 +171,14 @@ if __name__ == "__main__":
     comm = os.path.join(dir_of_program, 'ch_shebang.sh')
     git_pull()
     subprocess.run([comm, shebang], stdout=subprocess.DEVNULL)
-
     param2 = save_param()
-    restore_param(param1, param2)
+
+
+    if init_flag == 1:
+        restore_param(param1, param2)
+        print("Parameters reset to default.")
+    else:
+        print("Keeping current parameters.")
 
     restore_directory_names(param_file, saved_dir_names)
     restore_lib_files(backup_dir, lib_dir)
