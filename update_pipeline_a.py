@@ -44,7 +44,7 @@ class save_param():
             
             varr[1] = varr[1].replace("{date}", date)
             varr[1] = varr[1].replace("{objectname}", objectname)
-            print(f'aaaaa self.{varr[0]} = {varr[1]}')
+            #print(f'aaaaa self.{varr[0]} = {varr[1]}')
             exec(f'self.{varr[0]} = {varr[1]}')
                
 
