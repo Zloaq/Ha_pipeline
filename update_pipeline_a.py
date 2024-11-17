@@ -144,6 +144,7 @@ def restore_directory_names(file_path, dir_names):
 
 if __name__ == "__main__":
 
+    print('')
     argvs = sys.argv
     argc = len(argvs)
     fitspro = []
@@ -180,4 +181,4 @@ if __name__ == "__main__":
     restore_lib_files(backup_dir, lib_dir)
     shutil.rmtree(backup_dir)
 
-    print("Update completed!")
+    print("Update completed!\n")
