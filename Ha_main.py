@@ -45,6 +45,7 @@ def do_init():
 
 	paramlist = {
     'objfile_dir': f'{new_dir4}',
+	'matrix_dir': f'{new_dir6}',
     'rawdata_infra': f'{os.path.join(new_dir3, "{date}")}',
     'rawdata_opt': f'{os.path.join(new_dir2, "{date}")}',
     'work_dir': f'{os.path.join(new_dir5, "{objectname}", "{date}")}'
