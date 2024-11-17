@@ -418,7 +418,7 @@ def execute_code(param, objparam, log, bands=['haon_', 'haoff']):
 			globlist = []
 
 	if globlist:
-		os.makedirs(path, exist_ok=True)
+		os.makedirs(param.work_dir, exist_ok=True)
 		subprocess.run(f'rm {param.work_dir}/*.fits', shell=True, stderr=subprocess.DEVNULL)
 	else:
 		print(f'rowdata not exists.')
@@ -559,12 +559,7 @@ if __name__ == '__main__':
 	elif argc == 3:
 		param = readparam(argvs[2], argvs[1])
 		objparam = readobjfile(param, argvs[1])
-
-		path = os.path.join(param.work_dir)
-		os.makedirs(path, exist_ok=True)
-		iraf.chdir(path)
-		log = readlog('log.txt')
-		execute_code(param, objparam, log)
+		execute_code(param, objparam, None)
 
 	elif argc == 4:
 		print('yetyetyet, only jhk')
