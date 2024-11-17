@@ -15,11 +15,11 @@ haon__cutrange       '[15:-13,15:-5]'
 
 #---------starfind-------------------
 
-haoff_maxstarnum     90
-haon__maxstarnum     90
+haoff_maxstarnum     100
+haon__maxstarnum     100
 
-haoff_minstarnum     90
-haon__minstarnum     90
+haoff_minstarnum     70
+haon__minstarnum     70
 
 #--------triangle_match-------------------
 
