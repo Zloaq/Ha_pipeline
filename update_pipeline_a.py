@@ -181,4 +181,4 @@ if __name__ == "__main__":
     restore_lib_files(backup_dir, lib_dir)
     shutil.rmtree(backup_dir)
 
-    print("Update completed!\n")
+    print("Update process completed!\n")
