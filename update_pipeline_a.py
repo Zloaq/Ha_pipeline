@@ -104,21 +104,17 @@ def restore_param(usr_param, def_param):
 
 
 def save_lib(backup_dir, lib_dir):
-    if os.path.exists(backup_dir):
-        # バックアップディレクトリからlibディレクトリにコピー
-        shutil.copytree(backup_dir, lib_dir, dirs_exist_ok=True)
-        print(f"lib directory restored from {backup_dir}")
-    else:
-        print(f"Backup directory not found: {backup_dir}")
-
+    if os.path.exists(lib_dir):
+        # libディレクトリをバックアップディレクトリにコピー
+        shutil.copytree(lib_dir, backup_dir, dirs_exist_ok=True)
+        #print(f"lib directory backed up to {backup_dir}")
 
 def restore_lib_files(backup_dir, lib_dir):
     if os.path.exists(backup_dir):
         # バックアップディレクトリからlibディレクトリにコピー
         shutil.copytree(backup_dir, lib_dir, dirs_exist_ok=True)
         #print(f"lib directory restored from {backup_dir}")
-    else:
-        print(f"Backup directory not found: {backup_dir}")
+
 
 
 
