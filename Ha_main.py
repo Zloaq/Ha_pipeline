@@ -574,5 +574,5 @@ if __name__ == '__main__':
 		execute_code(param, objparam, log, argvs[3])
 	
 	else:
-		print('usage1 ./ku1mV.py [OBJECT file name] ')
-		print('usage2 ./ku1mV.py [object name][YYMMDD]')
+		print('usage1 ./Ha_main.py [OBJECT file name] ')
+		print('usage2 ./Ha_main.py [object name][YYMMDD]')
