@@ -404,6 +404,9 @@ def execute_code(param, objparam, log, bands=['haon_', 'haoff']):
 	fitslist = {}
 	obnamelist = {}
 
+	print(f'start pipeline')
+	print(f'object {argvs[1]}')
+
 	if param.quicklook == 1:
 		print('quicklook mode')
 
@@ -428,11 +431,22 @@ def execute_code(param, objparam, log, bands=['haon_', 'haoff']):
 	for band1 in globlist:
 		if band1 in ['haon', 'haoff']:
 			fitslist[band1], obnamelist[band1] = match_object(globlist[band1], objparam.SearchName)
-			if band1 == 'haon':
+			
+	if fitslist:
+		os.makedirs(param.work_dir, exist_ok=True)
+		subprocess.run(f'rm {param.work_dir}/*.fits', shell=True, stderr=subprocess.DEVNULL)
+	else:
+		print(f'rowdata not exists.')
+		print(f'end')
+		sys.exit()
+
+
+	for band1 in fitslist:
+		if band1 == 'haon':
 				for varr in fitslist[band1]:
 					shutil.copy(varr, f'{param.work_dir}/haon_{varr[4:]}')
-			else:
-				for varr in fitslist[band1]:
+		else:
+			for varr in fitslist[band1]:
 					shutil.copy(varr, param.work_dir)
 		
 
