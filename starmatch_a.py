@@ -43,11 +43,11 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
         filling_ratio = area / expected_area
         return filling_ratio
 
-    def filter_data(data, threshold, rms):
-        return np.where(data > threshold * rms, data, 0)
+    def filter_data(data, threshold, rms, med=0):
+        return np.where(data > threshold * rms + med, data, 0)
     
-    def binarize_data(data, threshold, rms):
-        return data > threshold * rms
+    def binarize_data(data, threshold, rms, med=0):
+        return data > threshold * rms + med
     
     def filter_saturate(labeled_image, filtered_data, object_slices, header):
         #div には対応してない
@@ -151,15 +151,16 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
                 data[:-offde_pix, :] = 0
             
             rms = bottom_a.skystat(filename, 'stddev')
+            med = bottom_a.skystat(filename, 'median')
 
             roopnum = [0, 0]
             while searchrange0[0] >= minthreshold:
                 center_list = []
                 for threshold in np.arange(searchrange0[0], searchrange0[1], searchrange0[2]):
-                    binarized_data = binarize_data(data, threshold, rms)
+                    binarized_data = binarize_data(data, threshold, rms, med)
                     labeled_image, _ = ndimage.label(binarized_data)
                     object_slices = ndimage.find_objects(labeled_image)
-                    filtered_data = filter_data(data, threshold, rms)
+                    filtered_data = filter_data(data, threshold, rms, med)
                     filtered_labels, filtered_objects = filter_saturate(labeled_image, filtered_data, object_slices, header)
 
                     _, slice_list = detect_round_clusters(filtered_labels, filtered_objects, labeled_image)
