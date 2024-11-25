@@ -10,6 +10,7 @@ import numpy as np
 from numpy.linalg import lstsq
 import tkinter as tk
 import customtkinter as ctk
+from scipy.optimize import curve_fit
 
 import Ha_main
 import bottom_a
@@ -39,7 +40,7 @@ def estimate_homography(points_src, points_dst):
 
 
 def do_starfind(fitslist):
-    starnumlist, coordsfilelist, iterate = starmatch_a.starfind_center3(
+    starnumlist, coordsfilelist, iterate = sta.starfind_center3(
         fitslist, param, [2.5, 5.5, 1], 0, 1000
         )
     return coordsfilelist
@@ -217,6 +218,97 @@ def adapt_matrix(coordsfile, matrix, outputfile):
             f_out.write(" ".join(map(str, coord)) + "\n")
 
 
+
+def moffat(x, A, alpha, beta, offset):
+    return A * (1 + ((x) / alpha) ** 2) ** (-beta) + offset
+
+# offset を固定値にするためのラップ関数
+def moffat_with_fixed_offset(x, A, alpha, beta, offset):
+    return A * (1 + ((x) / alpha) ** 2) ** (-beta) + offset
+
+def moffatfit(distances, intensities, sigma, offset_fixed):
+    # offset を固定した関数を定義
+    def moffat_fixed(x, A, alpha, beta):
+        return moffat_with_fixed_offset(x, A, alpha, beta, offset_fixed)
+
+    # 初期推定値
+    initial_guess = [max(intensities), np.std(distances), 2]
+    
+    # フィッティング
+    popt, pcov = curve_fit(
+        moffat_fixed, distances, intensities, sigma=sigma, p0=initial_guess, absolute_sigma=True
+    )
+    return popt, pcov
+
+
+def plot_radial_profile(stack_data, stack_coo, fitsname):
+    results = []
+    for i, slice_data in enumerate(stack_data):
+        coo_x, coo_y = stack_coo[i]
+
+        # ローカルなスライス座標における重心の座標を計算
+        local_center_x = coo_x - int(coo_x) + 8
+        local_center_y = coo_y - int(coo_y) + 8
+
+        distances = []
+        intensities = []
+        sigmas = []
+
+        # 各ピクセルの重心からの距離を計算
+        #for y in range(slice_data.shape[0]):
+        for y in range(slice_data.shape[0]):
+            for x in range(slice_data.shape[1]):
+                distance = np.sqrt((x - local_center_x)**2 + (y - local_center_y)**2)
+                intensity = slice_data[y, x]
+                distances.append(distance)
+                intensities.append(intensity)
+                sigmas.append(1 / (distance + 10))
+
+        distances = np.array(distances)
+        intensities = np.array(intensities)
+        sigmas = np.array(sigmas)
+        offset = np.median(intensities)
+
+        try:
+            popt, pcov = moffatfit(distances, intensities, sigmas, offset)
+            fit_model = moffat(distances, *popt)
+            residual = np.sum((intensities - fit_model) ** 2)
+            fwhm = 2 * np.sqrt(2**(1/popt[1]) - 1) * popt[2]
+            results.append((i + 1, stack_coo[i], residual, fwhm))
+        except RuntimeError:
+            print(f"Slice {i+1}: フィッティングに失敗しました。")
+            popt = [np.nan, np.nan, np.nan, np.nan]
+
+    sorted_results = sorted(results, key=lambda x: x[2])[:3]
+    for res in sorted_results:
+        print(f"スライス {res[0]} | 座標: {res[1]} | 残差: {res[2]:.2f} | FWHM: {res[3]:.2f}")
+
+    for res in sorted_results:
+        idx = res[0] - 1
+        slice_data = stack_data[idx]
+        distances, intensities = [], []
+        for y in range(slice_data.shape[0]):
+            for x in range(slice_data.shape[1]):
+                distances.append(np.sqrt((x - local_center_x)**2 + (y - local_center_y)**2))
+                intensities.append(slice_data[y, x])
+
+        distances, intensities = np.array(distances), np.array(intensities)
+        fit_x = np.linspace(min(distances), max(distances), 500)
+        fit_y = moffat(fit_x, *popt)
+        plt.figure(figsize=(8, 6))
+        plt.scatter(distances, intensities, s=1, alpha=0.5, label="Data")
+        plt.plot(fit_x, fit_y, color="gray", label="Fit")
+        plt.title(f"{fitsname} Slice {res[0]}: FWHM={res[3]:.2f}")
+        plt.legend()
+        plt.grid()
+        #plt.savefig(f"{fitsname}_slice_{res[0]}.png")
+        plt.show()
+
+
+#def calc_fwhm():
+
+
+
 def gattyanko(first_txdf, second_txdf, outputfile):
     with open(first_txdf, 'r') as f1:
         lines1 = f1.readlines()
@@ -285,6 +377,7 @@ def main(path_2_matrix, fwhm1, fwhm2):
         threshold_lside = results1[2][0]
         matrix = np.load(path_2_matrix)
         adapt_matrix(coordsfile, matrix, f'{second_fits[:-5]}.coo')
+        calc_fwhm()
         magf1 = do_phot([first_fits],  [f'{first_fits[:-5]}.coo'],  fwhm1)
         magf2 = do_phot([second_fits], [f'{second_fits[:-5]}.coo'], fwhm2)
         if not os.path.exists(magf1[0]):

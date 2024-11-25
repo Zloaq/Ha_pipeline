@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ $# -eq 0 ]; then
-    PYTHON_PATH=$(which python3)
+    PYTHON_PATH=$(python3 -c "import sys; print(sys.executable)")
 else
     PYTHON_PATH="$1"
 fi
