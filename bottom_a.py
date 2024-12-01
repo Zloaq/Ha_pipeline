@@ -109,7 +109,7 @@ def cut(inlist, param):
         with fits.open(f1) as hdul:
             data = hdul[0].data 
             header = hdul[0].header 
-            exec(f'data = data{cr}') 
+            data = eval(f'data{cr}')
             hdu = fits.PrimaryHDU(data, header) 
             hdu.writeto(f2, overwrite=True) 
 

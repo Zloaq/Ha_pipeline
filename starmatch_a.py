@@ -14,8 +14,7 @@ from astropy.io import fits
 from pyraf import iraf
 
 from itertools import combinations
-from scipy.spatial import KDTree
-from scipy.spatial.transform import Rotation as R
+from scipy.optimize import curve_fit
 from sklearn.neighbors import NearestNeighbors
 
 import bottom_a
@@ -80,6 +79,62 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
 
         return round_clusters, slice_list
     
+
+    def moffat_2d(coords, A, alpha, beta, x_c, y_c, offset):
+        x, y = coords
+        return A * (1 + ((x - x_c)**2 + (y - y_c)**2) / alpha**2) ** (-beta) + offset
+
+    # フィット関数（重心位置を更新）
+    def refine_center_2d(image, sigma, offset_fixed, tol=1e-5, max_iter=10):
+        """
+        image: 2次元画像データ（強度値）
+        sigma: ピクセルごとの誤差（2次元配列）
+        offset_fixed: 背景オフセット（固定値）
+        initial_center: 初期重心位置 (x_c, y_c)
+        tol: 重心位置の収束条件
+        max_iter: 最大反復回数
+        """
+        y_indices, x_indices = np.indices(image.shape)
+        coords = np.vstack((x_indices.ravel(), y_indices.ravel()))
+
+        # 初期値の設定
+        x_c, y_c = (image.shape[1] // 2, image.shape[0] // 2)
+        A_init = np.max(image)
+        alpha_init = 2.8
+        beta_init = 2.5  # 一般的な初期値
+
+        for iteration in range(max_iter):
+            # フィッティング対象のMoffat関数（中心を可変）
+            def moffat_2d_fixed_offset(coords, A, alpha, beta, x_c, y_c):
+                return moffat_2d(coords, A, alpha, beta, x_c, y_c, offset_fixed)
+
+            # フィット実行
+            initial_guess = [A_init, alpha_init, beta_init, x_c, y_c]
+            try:
+                popt, _ = curve_fit(
+                    moffat_2d_fixed_offset,
+                    coords,
+                    image.ravel(),
+                    p0=initial_guess,
+                    sigma=sigma.ravel(),
+                    absolute_sigma=True,
+                    bounds=(
+                        [0, 0.1, 0.1, 0, 0],  # パラメータの下限
+                        [np.inf, 10, 10, image.shape[1], image.shape[0]]  # パラメータの上限
+                    )
+                )
+            except:
+                popt = None
+                break
+
+            A, alpha, beta, x_c_new, y_c_new = popt
+            if np.sqrt((x_c_new - x_c)**2 + (y_c_new - y_c)**2) < tol:
+                #print("Converged!")
+                break
+            x_c, y_c = x_c_new, y_c_new
+
+        return popt
+
     def clustar_centroid(data, slices, padding=2):
         max_y, max_x = data.shape
 
@@ -104,11 +159,29 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
             y_indices, x_indices = np.indices(data_slice.shape)
             y_centroid_local = np.sum(y_indices * data_slice) / total
             x_centroid_local = np.sum(x_indices * data_slice) / total
-            y_centroid_global = y_centroid_local + y_start + 1 
-            x_centroid_global = x_centroid_local + x_start + 1
+            y_centroid_global = y_centroid_local + y_start
+            x_centroid_global = x_centroid_local + x_start
             centroids.append((y_centroid_global, x_centroid_global))
 
-        return centroids
+        centroids2 = []
+        for index, coo in enumerate(centroids):
+            y, x = int(coo[0]), int(coo[1])
+            x_start, x_end = x - 8, x + 9
+            y_start, y_end = y - 8, y + 9
+            if x_start < 0 or y_start < 0 or x_end > data.shape[1] or y_end > data.shape[0]:
+                #print(f"Skipping coordinates ({x}, {y}) - slice out of bounds.")
+                continue
+            slice_image = data[y_start:y_end, x_start:x_end]
+            sigma = np.ones_like(slice_image)
+            index0 = int(len(data)/4)
+            offset_fixed = np.median(data[-index0:])
+            fitresult = refine_center_2d(slice_image, sigma, offset_fixed)
+            if fitresult is None:
+                continue
+            #print(f"Refined center: {(refined_center[1]+1, refined_center[0]+1)}")
+            centroids2.append((fitresult[4] + y_start + 1, fitresult[3] + x_start + 1))
+
+        return centroids2
     
     def chose_unique_coords(center_list):
 
@@ -154,6 +227,11 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
             med = bottom_a.skystat(filename, 'median')
 
             roopnum = [0, 0]
+
+            if searchrange0[0] < minthreshold:
+                searchrange0[0] += 1
+                searchrange0[1] += 1
+
             while searchrange0[0] >= minthreshold:
                 center_list = []
                 for threshold in np.arange(searchrange0[0], searchrange0[1], searchrange0[2]):

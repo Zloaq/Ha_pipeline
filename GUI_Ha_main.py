@@ -18,6 +18,7 @@ lock = threading.Lock()
 
 FONT_TYPE = "meiryo"
 
+
 class App(ctk.CTk):
 
     def __init__(self):
@@ -322,56 +323,7 @@ class EditAdvancedParamFrame(ctk.CTkFrame):
         super().__init__(master, fg_color="transparent", *args, **kwargs)
 
 
-class ReadFileFrame(ctk.CTkFrame):
-    def __init__(self, *args, header_name="ReadFileFrame", **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        self.fonts = (FONT_TYPE, 15)
-        self.header_name = header_name
-        self.setup_form()
 
-    def setup_form(self):
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
-
-        self.label = ctk.CTkLabel(self, text=self.header_name, font=(FONT_TYPE, 11))
-        self.label.grid(row=0, column=0, padx=20, sticky="w")
-
-        self.textbox = ctk.CTkEntry(master=self, placeholder_text="CSV ファイルを読み込む", width=120, font=self.fonts)
-        self.textbox.grid(row=1, column=0, padx=10, pady=(0,10), sticky="ew")
-
-        self.button_select = ctk.CTkButton(master=self, 
-            fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"),
-            command=self.button_select_callback, text="ファイル選択", font=self.fonts)
-        self.button_select.grid(row=1, column=1, padx=10, pady=(0,10))
-        
-        self.button_open = ctk.CTkButton(master=self, command=self.button_open_callback, text="開く", font=self.fonts)
-        self.button_open.grid(row=1, column=2, padx=10, pady=(0,10))
-        
-        self.button_new_window = ctk.CTkButton(master=self, command=self.open_new_window, text="新しいウィンドウを開く", font=self.fonts)
-        self.button_new_window.grid(row=2, column=0, columnspan=3, padx=10, pady=(10,10), sticky="ew")
-
-    def button_select_callback(self):
-        file_name = ReadFileFrame.file_read()
-        if file_name is not None:
-            self.textbox.delete(0, tk.END)
-            self.textbox.insert(0, file_name)
-
-    def button_open_callback(self):
-        file_name = self.textbox.get()
-        if file_name is not None or len(file_name) != 0:
-            with open(file_name) as f:
-                data = f.read()
-                print(data)
-            
-    @staticmethod
-    def file_read():
-        current_dir = os.path.abspath(os.path.dirname(__file__))
-        file_path = tk.filedialog.askopenfilename(filetypes=[("csvファイル","*")],initialdir=current_dir)
-        return file_path if len(file_path) != 0 else None
-
-    def open_new_window(self):
-        new_window = NewWindow(self)
 
 class NewWindow(ctk.CTkToplevel):
     def __init__(self, *args, **kwargs):

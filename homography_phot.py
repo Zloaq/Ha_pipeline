@@ -5,6 +5,7 @@ import os
 import re
 import glob
 from pyraf import iraf
+from astropy.io import fits
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import lstsq
@@ -16,6 +17,80 @@ import Ha_main
 import bottom_a
 import starmatch_a as sta
 
+FONT_TYPE = "meiryo"
+
+
+class ExecuteFrame(ctk.CTkFrame):
+    def __init__(self, master, *args, **kwargs):
+        super().__init__(master, fg_color="transparent", *args, **kwargs)
+        self.fonts = (FONT_TYPE, 15)
+        self.setup_form()
+
+    def setup_form(self):
+        self.execform = ExecForm(master=self)
+        self.execform.grid(row=0, column=0, columnspan=2, padx=20, pady=(20,10), sticky="w")
+
+        
+
+
+class ExecForm(ctk.CTkFrame):
+    def __init__(self, master, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.fonts = (FONT_TYPE, 15)
+        self.param = Ha_main.readparam()
+        self.executing = False
+        self.setup_form()
+
+    def setup_form(self):
+        self.objcts = self.get_objnames(self.param)
+        self.dates  = self.get_unique_date(self.param)
+        self.combox_objects = ctk.CTkComboBox(master=self, values=self.objcts)
+        self.combox_date    = ctk.CTkComboBox(master=self, values=self.dates, width=100)
+        self.combox_objects.grid(row=0, padx=(10,5), pady=10, column=0, sticky="w")
+        self.combox_date.grid(row=0, padx=(5,10), pady=10, column=1, sticky="w")
+
+        self.add_event_button  = ctk.CTkButton(master=self, command=self.AddEvent, text="add queue list", font=self.fonts, width=110)
+        self.exec_event_button = ctk.CTkButton(master=self, command=self.toggle, text="▶︎ satrt queue",
+                                            fg_color="green", hover_color="green", font=self.fonts, width=100)
+        self.add_event_button.grid(row=0, column=2, padx=10, pady=10, sticky="w")
+        self.exec_event_button.grid(row=0, column=3, padx=10, pady=10, sticky="w")
+
+    def get_objnames(self, param):
+        obj_dir = glob.glob(os.path.join(param.objfile_dir, '*'))
+        objfiles = [os.path.basename(path) for path in obj_dir if os.path.isfile(path)]
+        objfiles.sort()
+        return objfiles
+    
+    def get_unique_date(self, param):
+        optvarr0 = param.rawdata_opt.split('/{date}')[0]
+        infvarr0 = param.rawdata_infra.split('/{date}')[0]
+        optvarr1 = re.sub(r"\{.*?\}", "\*", optvarr0)
+        infvarr1 = re.sub(r"\{.*?\}", "\*", infvarr0)
+        optvarr2 = glob.glob(optvarr1)
+        infvarr2 = glob.glob(infvarr1)
+        optvarr3 = [
+            name for path in optvarr2 
+            for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))
+        ]
+        infvarr3 = [
+            name for path in infvarr2 
+            for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))
+        ]
+        unique_date = list(set(optvarr3) | set(infvarr3))
+        unique_date.sort()
+        unique_date.append('All')
+        return unique_date
+    
+
+class 
+
+
+def read_coofile(infile):
+        with open(infile, 'r') as file:
+            flines = file.readlines()
+        lines = [line.strip().split() for line in flines if not line.startswith('#')]
+        coords = np.array([[float(line[0])-1, float(line[1])-1] for line in lines])  # coox, cooy,
+        return coords
 
 
 def estimate_homography(points_src, points_dst):
@@ -185,6 +260,7 @@ def main():
     do_plot(offtxlist, ontxlist)
 """
 
+
 def glob_pattern():
     fitslist = glob.glob("*.fits")
     grouped_files = {}
@@ -216,7 +292,7 @@ def adapt_matrix(coordsfile, matrix, outputfile):
     with open(outputfile, 'w') as f_out:
         for coord in transformed_coords:
             f_out.write(" ".join(map(str, coord)) + "\n")
-
+    return outputfile
 
 
 def moffat(x, A, alpha, beta, offset):
@@ -241,7 +317,7 @@ def moffatfit(distances, intensities, sigma, offset_fixed):
     return popt, pcov
 
 
-def plot_radial_profile(stack_data, stack_coo, fitsname):
+def moffatf_fwhm(stack_data, stack_coo, fitsname):
     results = []
     for i, slice_data in enumerate(stack_data):
         coo_x, coo_y = stack_coo[i]
@@ -266,20 +342,25 @@ def plot_radial_profile(stack_data, stack_coo, fitsname):
 
         distances = np.array(distances)
         intensities = np.array(intensities)
+        peak = intensities.max()
         sigmas = np.array(sigmas)
-        offset = np.median(intensities)
+        index0 = int(len(intensities)/4)
+        offset = np.median(intensities[-index0:])
 
         try:
             popt, pcov = moffatfit(distances, intensities, sigmas, offset)
-            fit_model = moffat(distances, *popt)
+            fit_model = moffat(distances, offset=offset, *popt)
             residual = np.sum((intensities - fit_model) ** 2)
-            fwhm = 2 * np.sqrt(2**(1/popt[1]) - 1) * popt[2]
-            results.append((i + 1, stack_coo[i], residual, fwhm))
+            fwhm = 2 * np.sqrt(2**(1/popt[2]) - 1) * popt[1]
+            results.append((i + 1, stack_coo[i], residual, fwhm, popt, peak))
         except RuntimeError:
             print(f"Slice {i+1}: フィッティングに失敗しました。")
             popt = [np.nan, np.nan, np.nan, np.nan]
 
-    sorted_results = sorted(results, key=lambda x: x[2])[:3]
+    #filtered_results = [item for item in results if item[4] <= threshold]
+    sorted_results1 = sorted(results, key=lambda x: x[5])[-5:]
+    #sorted_results = sorted(sorted_results1, key=lambda x: x[2])[:3]
+    sorted_results = sorted(results, key=lambda x: x[5])[-5:]
     for res in sorted_results:
         print(f"スライス {res[0]} | 座標: {res[1]} | 残差: {res[2]:.2f} | FWHM: {res[3]:.2f}")
 
@@ -293,20 +374,50 @@ def plot_radial_profile(stack_data, stack_coo, fitsname):
                 intensities.append(slice_data[y, x])
 
         distances, intensities = np.array(distances), np.array(intensities)
+        index0 = int(len(intensities)/4)
+        offset = np.median(intensities[-index0:])
         fit_x = np.linspace(min(distances), max(distances), 500)
-        fit_y = moffat(fit_x, *popt)
+        fit_y = moffat(fit_x, offset=offset, *res[4])
         plt.figure(figsize=(8, 6))
         plt.scatter(distances, intensities, s=1, alpha=0.5, label="Data")
         plt.plot(fit_x, fit_y, color="gray", label="Fit")
         plt.title(f"{fitsname} Slice {res[0]}: FWHM={res[3]:.2f}")
         plt.legend()
         plt.grid()
-        #plt.savefig(f"{fitsname}_slice_{res[0]}.png")
-        plt.show()
+        plt.savefig(f"{fitsname}_slice_{res[0]}.png")
+        #plt.show()
+    
+    fwhms = [varr[3] for varr in sorted_results]
+    med_fwhm = sorted(fwhms)[int(len(fwhms)/2)]
+
+    return med_fwhm
 
 
-#def calc_fwhm():
+def calc_fwhm(fitsname, coordsfile):
+    data = fits.getdata(fitsname)
+    coords = read_coofile(coordsfile)
+    slice_size = (17, 17)
+    num_slices = len(coords)
+    stack_data = np.zeros((num_slices, *slice_size), dtype=data.dtype)
 
+    stack_coo  = []
+    valid_slice_count = 0
+    for coo in coords:
+        x, y = int(coo[0]), int(coo[1])
+        x_start, x_end = x - 8, x + 9
+        y_start, y_end = y - 8, y + 9
+        # スライスが画像の範囲内に収まっているかチェック
+        if x_start < 0 or y_start < 0 or x_end > data.shape[1] or y_end > data.shape[0]:
+            print(f"Skipping coordinates ({x}, {y}) - slice out of bounds.")
+            continue
+
+        stack_data[valid_slice_count] = data[y_start:y_end, x_start:x_end]
+        stack_coo.append(coo)
+        valid_slice_count += 1
+    stack_data = stack_data[:valid_slice_count]
+    fwhm = moffatf_fwhm(stack_data, stack_coo, fitsname)
+
+    return fwhm
 
 
 def gattyanko(first_txdf, second_txdf, outputfile):
@@ -373,11 +484,12 @@ def main(path_2_matrix, fwhm1, fwhm2):
         second_fits = list1[1]
         results1 = sta.starfind_center3([first_fits], pixscale[first_fits[:5]],satcount[first_fits[:5]], enable_progress_bar=False)
         starnum         = results1[0][0]
-        coordsfile      = results1[1][0]
+        first_coof      = results1[1][0]
         threshold_lside = results1[2][0]
         matrix = np.load(path_2_matrix)
-        adapt_matrix(coordsfile, matrix, f'{second_fits[:-5]}.coo')
-        calc_fwhm()
+        second_coof = adapt_matrix(first_coof, matrix, f'{second_fits[:-5]}.coo')
+        fwhm1 = calc_fwhm(first_fits, first_coof)
+        fwhm2 = calc_fwhm(second_fits, second_coof)
         magf1 = do_phot([first_fits],  [f'{first_fits[:-5]}.coo'],  fwhm1)
         magf2 = do_phot([second_fits], [f'{second_fits[:-5]}.coo'], fwhm2)
         if not os.path.exists(magf1[0]):
