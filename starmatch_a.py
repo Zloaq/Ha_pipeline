@@ -101,7 +101,7 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
         x_c, y_c = (image.shape[1] // 2, image.shape[0] // 2)
         A_init = np.max(image)
         alpha_init = 2.8
-        beta_init = 2.5  # 一般的な初期値
+        beta_init = 2 # 一般的な初期値
 
         for iteration in range(max_iter):
             # フィッティング対象のMoffat関数（中心を可変）
