@@ -386,7 +386,7 @@ def moffatf_fwhm(stack_data, stack_coo, fitsname):
         plt.grid()
         plt.savefig(f"{fitsname}_slice_{res[0]}.png")
         #plt.show()
-    
+
     fwhms = [varr[3] for varr in sorted_results]
     med_fwhm = sorted(fwhms)[int(len(fwhms)/2)]
 

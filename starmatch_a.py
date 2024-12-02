@@ -173,8 +173,10 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
                 continue
             slice_image = data[y_start:y_end, x_start:x_end]
             sigma = np.ones_like(slice_image)
-            index0 = int(len(data)/4)
-            offset_fixed = np.median(data[-index0:])
+            data_flat_sorted = np.sort(data.ravel())
+            index0 = int(len(data_flat_sorted) / 4)
+            lower_quarter = data_flat_sorted[:index0]
+            offset_fixed = np.median(lower_quarter)
             fitresult = refine_center_2d(slice_image, sigma, offset_fixed)
             if fitresult is None:
                 continue
