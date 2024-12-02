@@ -138,6 +138,11 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
     def clustar_centroid(data, slices, padding=2):
         max_y, max_x = data.shape
 
+        data_flat_sorted = np.sort(data.ravel())
+        index0 = int(len(data_flat_sorted) / 4)
+        lower_quarter = data_flat_sorted[:index0]
+        offset_fixed = np.median(lower_quarter)
+
         # スライスのリストを numpy 配列に変換
         slices_array = np.array([[sl[0].start, sl[0].stop, sl[1].start, sl[1].stop] for sl in slices])
         #print(f'aaaa{slices_array}')
@@ -173,10 +178,6 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
                 continue
             slice_image = data[y_start:y_end, x_start:x_end]
             sigma = np.ones_like(slice_image)
-            data_flat_sorted = np.sort(data.ravel())
-            index0 = int(len(data_flat_sorted) / 4)
-            lower_quarter = data_flat_sorted[:index0]
-            offset_fixed = np.median(lower_quarter)
             fitresult = refine_center_2d(slice_image, sigma, offset_fixed)
             if fitresult is None:
                 continue
