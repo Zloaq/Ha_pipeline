@@ -79,6 +79,7 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
 
         return round_clusters, slice_list
     
+    
     def moffat_2d(coords, A, alpha, beta, x_c, y_c, offset):
         x, y = coords
         return A * (1 + ((x - x_c)**2 + (y - y_c)**2) / alpha**2) ** (-beta) + offset
@@ -721,7 +722,8 @@ def do_xyxymatch(param, optstarlist, optcoolist, infstarlist=[], infcoolist=[]):
                     continue
                 opt_matchedf[varr].append(outfvarr)
         else:
-            print(f'not execute {varr} trimatch')
+            print(f'not execute {varr} tr-match')
+            notmatch = []
             opt_matchbase[varr] = optbase
             opt_match[varr] = 0
 

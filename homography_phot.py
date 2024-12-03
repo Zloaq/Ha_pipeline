@@ -4,6 +4,7 @@ import sys
 import os
 import re
 import glob
+import statistics
 from pyraf import iraf
 from astropy.io import fits
 import matplotlib.pyplot as plt
@@ -17,79 +18,32 @@ import Ha_main
 import bottom_a
 import starmatch_a as sta
 
-FONT_TYPE = "meiryo"
 
+matrix_path   = '/Users/motomo/iriki/matrix/haon__to_haoff_240807_4.npy'
+fits_pattern  = None
 
-class ExecuteFrame(ctk.CTkFrame):
-    def __init__(self, master, *args, **kwargs):
-        super().__init__(master, fg_color="transparent", *args, **kwargs)
-        self.fonts = (FONT_TYPE, 15)
-        self.setup_form()
+force_fwhm_on = None
+coef_annulus_on  = 2.5
+coef_dannulus_on = 3
 
-    def setup_form(self):
-        self.execform = ExecForm(master=self)
-        self.execform.grid(row=0, column=0, columnspan=2, padx=20, pady=(20,10), sticky="w")
+force_fwhm_of = None
+coef_annulus_of  = 2.5
+coef_dannulus_of = 3
 
-        
-
-
-class ExecForm(ctk.CTkFrame):
-    def __init__(self, master, *args, **kwargs):
-        super().__init__(master, *args, **kwargs)
-        self.fonts = (FONT_TYPE, 15)
-        self.param = Ha_main.readparam()
-        self.executing = False
-        self.setup_form()
-
-    def setup_form(self):
-        self.objcts = self.get_objnames(self.param)
-        self.dates  = self.get_unique_date(self.param)
-        self.combox_objects = ctk.CTkComboBox(master=self, values=self.objcts)
-        self.combox_date    = ctk.CTkComboBox(master=self, values=self.dates, width=100)
-        self.combox_objects.grid(row=0, padx=(10,5), pady=10, column=0, sticky="w")
-        self.combox_date.grid(row=0, padx=(5,10), pady=10, column=1, sticky="w")
-
-        self.add_event_button  = ctk.CTkButton(master=self, command=self.AddEvent, text="add queue list", font=self.fonts, width=110)
-        self.exec_event_button = ctk.CTkButton(master=self, command=self.toggle, text="▶︎ satrt queue",
-                                            fg_color="green", hover_color="green", font=self.fonts, width=100)
-        self.add_event_button.grid(row=0, column=2, padx=10, pady=10, sticky="w")
-        self.exec_event_button.grid(row=0, column=3, padx=10, pady=10, sticky="w")
-
-    def get_objnames(self, param):
-        obj_dir = glob.glob(os.path.join(param.objfile_dir, '*'))
-        objfiles = [os.path.basename(path) for path in obj_dir if os.path.isfile(path)]
-        objfiles.sort()
-        return objfiles
-    
-    def get_unique_date(self, param):
-        optvarr0 = param.rawdata_opt.split('/{date}')[0]
-        infvarr0 = param.rawdata_infra.split('/{date}')[0]
-        optvarr1 = re.sub(r"\{.*?\}", "\*", optvarr0)
-        infvarr1 = re.sub(r"\{.*?\}", "\*", infvarr0)
-        optvarr2 = glob.glob(optvarr1)
-        infvarr2 = glob.glob(infvarr1)
-        optvarr3 = [
-            name for path in optvarr2 
-            for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))
-        ]
-        infvarr3 = [
-            name for path in infvarr2 
-            for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))
-        ]
-        unique_date = list(set(optvarr3) | set(infvarr3))
-        unique_date.sort()
-        unique_date.append('All')
-        return unique_date
-    
-
-class 
 
 
 def read_coofile(infile):
         with open(infile, 'r') as file:
             flines = file.readlines()
         lines = [line.strip().split() for line in flines if not line.startswith('#')]
-        coords = np.array([[float(line[0])-1, float(line[1])-1] for line in lines])  # coox, cooy,
+        coords = []
+        for line in lines:
+            if 'INDEF' in line:
+                coords.append(line)
+                continue
+            x = float(line[0]) - 1  # X座標
+            y = float(line[1]) - 1  # Y座標
+            coords.append([x, y])
         return coords
 
 
@@ -153,12 +107,29 @@ def do_estcoords(coords_file_list, H_array):
     return outlist
 
 
-def do_phot(fitslist, coofilelist, fwhm=5):
+def do_phot(fitslist, coofilelist, fwhm=5, coef1=2.5, coef2=3):
     bottom_a.setparam()
     magf_list = []
     for fits, coof in zip(fitslist, coofilelist):
-        sigma = bottom_a.skystat(fits, 'stddev')
-        bottom_a.phot(fits, fwhm, sigma)
+        #sigma = bottom_a.skystat(fits, 'stddev')
+        #bottom_a.phot(fits, fwhm, sigma)
+        iraf.apphot.datapars.unlearn()
+        iraf.apphot.centerpars.unlearn()
+        iraf.apphot.fitskypars.unlearn()
+        iraf.apphot.centerpars.calgorithm = 'centroid'
+
+        iraf.apphot.photpars.apertures = coef1*float(fwhm)
+        iraf.apphot.fitskypars.annulus = coef2*float(fwhm)
+        iraf.apphot.fitskypars.dannulus = 10
+        iraf.apphot.photpars.zmag = 0
+
+        iraf.apphot.phot.interactive = 'no'
+        iraf.apphot.phot.cache = 'no'
+        iraf.apphot.phot.verify = 'no'
+        iraf.apphot.phot.update = 'yes'
+        iraf.apphot.phot.verbose = 'no'
+        iraf.apphot.phot.mode = 'h'
+
         iraf.apphot.phot.coords = coof
         iraf.apphot.phot.output = f'{coof[:-4]}.mag.1'
         try:
@@ -175,6 +146,7 @@ def do_phot(fitslist, coofilelist, fwhm=5):
 def do_txdump(magfilelist):
     txd_list = []
     for file in magfilelist:
+        #print(f'fileleleelle{file}')
         iraf.apphot.txdump.fields = 'id,xcenter,ycenter,mag,merr'
         iraf.apphot.txdump.expr = 'yes'
         iraf.apphot.txdump.mode = 'h'
@@ -219,50 +191,10 @@ def do_plot(offtxlist, ontxlist):
         plt.savefig(f'{offile1[5:-7]}.png', dpi=300)
         plt.clf()
 
-"""
-def main():
-    #point
-    fits_pattern = "*.fits"
-    on_list  = glob.glob(f'haon{fits_pattern}')
-    off_list = glob.glob(f'haof{fits_pattern}')
-    on_list.sort()
-    off_list.sort()
-
-    imexfile = glob.glob("*homo*")
-    if len(imexfile) != 1:
-        print('imexfile not exist.')
-        sys.exit()
-    print(imexfile)
-    points_src, points_dst = read_imexam_results(imexfile[0])
-    H_array = estimate_homography(points_src, points_dst)
-
-    print(H_array)
-
-    oncooflist = do_starfind(on_list)
-    ofcooflist = do_estcoords(oncooflist, H_array)
-
-    #print(f'onlist{on_list}')
-    #print(f'oncoof{oncooflist}')
-    #print(f'offlist{off_list}')
-    #print(f'offcoof{ofcooflist}')
-
-    do_phot(on_list, oncooflist)
-    do_phot(off_list, ofcooflist)
-
-    magfilelist = glob.glob("*mag*")
-    do_txdump(magfilelist)
-
-    offtxlist = glob.glob(f'haoff*.txdump')
-    ontxlist  = glob.glob(f'haon_*.txdump')
-    offtxlist.sort()
-    ontxlist.sort()
-
-    do_plot(offtxlist, ontxlist)
-"""
 
 
-def glob_pattern():
-    fitslist = glob.glob("*.fits")
+def glob_pattern(pattern="*.fits"):
+    fitslist = glob.glob(pattern)
     grouped_files = {}
     for fitsname in fitslist:
         parts = fitsname.split(day)
@@ -273,9 +205,9 @@ def glob_pattern():
         if not fits_id in grouped_files:
             grouped_files[fits_id] = [None, None]
 
-        if 'haoff' in parts[0]:
+        if 'haon' in parts[0]:
             grouped_files[fits_id][0] = fitsname
-        elif 'haon' in parts[0]:
+        elif 'haoff' in parts[0]:
             grouped_files[fits_id][1] = fitsname
 
     filtered_files = {k: v for k, v in grouped_files.items() if all(v)}
@@ -286,8 +218,9 @@ def glob_pattern():
 def adapt_matrix(coordsfile, matrix, outputfile):
     with open(coordsfile, 'r') as f1:
         lines1 = f1.readlines()
-    coords1 = np.array([line1.split() for line1 in lines1])
+    coords1 = np.array([list(map(float, line1.split())) for line1 in lines1])
     coords_with_bias = np.hstack([coords1, np.ones((coords1.shape[0], 1))])
+    #print(coords_with_bias)
     transformed_coords = coords_with_bias @ matrix.T
     with open(outputfile, 'w') as f_out:
         for coord in transformed_coords:
@@ -295,251 +228,343 @@ def adapt_matrix(coordsfile, matrix, outputfile):
     return outputfile
 
 
-def moffat(x, A, alpha, beta, offset):
-    return A * (1 + ((x) / alpha) ** 2) ** (-beta) + offset
 
-# offset を固定値にするためのラップ関数
-def moffat_with_fixed_offset(x, A, alpha, beta, offset):
-    return A * (1 + ((x) / alpha) ** 2) ** (-beta) + offset
+def moffat_2d(coords, A, alpha, beta, x_c, y_c, offset):
+    x, y = coords
+    return A * (1 + ((x - x_c)**2 + (y - y_c)**2) / alpha**2) ** (-beta) + offset
 
-def moffatfit(distances, intensities, sigma, offset_fixed):
-    # offset を固定した関数を定義
-    def moffat_fixed(x, A, alpha, beta):
-        return moffat_with_fixed_offset(x, A, alpha, beta, offset_fixed)
-
-    # 初期推定値
-    initial_guess = [max(intensities), np.std(distances), 2]
+def refine_center_2d(fitsname, coof, tol=1e-5, max_iter=10):
     
-    # フィッティング
-    popt, pcov = curve_fit(
-        moffat_fixed, distances, intensities, sigma=sigma, p0=initial_guess, absolute_sigma=True
-    )
-    return popt, pcov
+    data = fits.getdata(fitsname)
+    coords = read_coofile(coof)
+    data_flat_sorted = np.sort(data.ravel())
+    index0 = int(len(data_flat_sorted) / 4)
+    lower_quarter = data_flat_sorted[:index0]
+    offset_fixed = np.median(lower_quarter)
+
+    alpha_init = 2.8
+    beta_init = 2  # 一般的な初期値
+
+    centroids = []
+    for index, coo in enumerate(coords):
+        x, y = int(coo[0]), int(coo[1])
+        x_start, x_end = x - 8, x + 9
+        y_start, y_end = y - 8, y + 9
+        if x_start < 0 or y_start < 0 or x_end > data.shape[1] or y_end > data.shape[0]:
+            #print(f"Skipping coordinates ({x}, {y}) - slice out of bounds.")
+            continue
+        slice_image = data[y_start:y_end, x_start:x_end]
+        sigma = np.ones_like(slice_image)
+
+        y_indices, x_indices = np.indices(slice_image.shape)
+        coords = np.vstack((x_indices.ravel(), y_indices.ravel()))
+
+        x_c, y_c = (slice_image.shape[1] // 2, slice_image.shape[0] // 2)
+        A_init = np.max(slice_image)
+
+        for iteration in range(max_iter):
+            # フィッティング対象のMoffat関数（中心を可変）
+            def moffat_2d_fixed_offset(coords, A, alpha, beta, x_c, y_c):
+                return moffat_2d(coords, A, alpha, beta, x_c, y_c, offset_fixed)
+
+            # フィット実行
+            initial_guess = [A_init, alpha_init, beta_init, x_c, y_c]
+            try:
+                popt, _ = curve_fit(
+                    moffat_2d_fixed_offset,
+                    coords,
+                    slice_image.ravel(),
+                    p0=initial_guess,
+                    sigma=sigma.ravel(),
+                    absolute_sigma=True,
+                    bounds=(
+                        [0, 0.1, 0.1, 0, 0],  # パラメータの下限
+                        [np.inf, 10, 10, slice_image.shape[1], slice_image.shape[0]]  # パラメータの上限
+                    )
+                )
+            except:
+                popt = None
+                break
+            A, alpha, beta, x_c_new, y_c_new = popt
+            if np.sqrt((x_c_new - x_c)**2 + (y_c_new - y_c)**2) < tol:
+                #print("Converged!")
+                break
+
+        if popt is None:
+            centroids.append(('INDEF', 'INDEF'))
+            continue
+
+        centroids.append((popt[3] + x_start + 1, popt[4] + y_start + 1))
+    
+    with open(coof, 'w') as f_out:
+        for coord in centroids:
+            f_out.write(" ".join(map(str, coord)) + "\n")
+
+        
+    return coof
 
 
-def moffatf_fwhm(stack_data, stack_coo, fitsname):
-    results = []
-    for i, slice_data in enumerate(stack_data):
-        coo_x, coo_y = stack_coo[i]
+def moffat_1d(distances, A, alpha, beta, offset):
+    return A * (1 + (distances / alpha) ** 2) ** (-beta) + offset
 
-        # ローカルなスライス座標における重心の座標を計算
-        local_center_x = coo_x - int(coo_x) + 8
-        local_center_y = coo_y - int(coo_y) + 8
+def calc_fwhm(fitsname, coof):
+    result = []
+    data = fits.getdata(fitsname)
+    coords = read_coofile(coof)
+    num_coords = len(coords)
+    stack_data = np.zeros((num_coords, 17, 17))
+    count = 0
+    stack_locoo = []
+    for i, coo in enumerate(coords):
+        if 'INDEF' in coo:
+            continue
+        x, y = int(coo[0]), int(coo[1])
+        x_start, x_end = x - 8, x + 9
+        y_start, y_end = y - 8, y + 9
+        if x_start < 0 or y_start < 0 or x_end > data.shape[1] or y_end > data.shape[0]:
+                #print(f"Skipping coordinates ({x}, {y}) - slice out of bounds.")
+                continue
+        slice_image = data[y_start:y_end, x_start:x_end]
+        stack_data[count] = slice_image
+        count += 1
+        stack_locoo.append((coo[0] - int(x) + 8, coo[1] - int(y) + 8))
+    result = result[:count]
+
+    def moffat_1d_fixed_offset(distances, A, alpha, beta):
+        return moffat_1d(distances, A, alpha, beta, offset_fixed)
+
+    alpha_init = 2.8
+    beta_init = 2
+
+    y_indices, x_indices = np.indices((17, 17))
+    x = x_indices.ravel()
+    y = y_indices.ravel()
+
+    popts = []
+    for sliced_data, locoo in zip(stack_data, stack_locoo):
+        data_flat_sorted = np.sort(sliced_data.ravel())
+        index0 = int(len(data_flat_sorted) / 2)
+        lower_data = data_flat_sorted[:index0]
+        offset_fixed = np.median(lower_data)
+
+        A_init = np.max(sliced_data)
+        initial_guess = [A_init, alpha_init, beta_init]
+
+        #xx, yy = np.meshgrid(x, y)
+        #distances = np.sqrt((xx - locoo[0])**2 + (yy - locoo[1])**2)
 
         distances = []
         intensities = []
         sigmas = []
 
         # 各ピクセルの重心からの距離を計算
-        #for y in range(slice_data.shape[0]):
-        for y in range(slice_data.shape[0]):
-            for x in range(slice_data.shape[1]):
-                distance = np.sqrt((x - local_center_x)**2 + (y - local_center_y)**2)
-                intensity = slice_data[y, x]
+        for y in range(sliced_data.shape[0]):
+            for x in range(sliced_data.shape[1]):
+                distance = np.sqrt((x - locoo[0])**2 + (y - locoo[1])**2)
+                intensity = sliced_data[y, x]
+
+                # データを保存
                 distances.append(distance)
                 intensities.append(intensity)
                 sigmas.append(1 / (distance + 10))
+                #sigmas.append(1)
 
         distances = np.array(distances)
         intensities = np.array(intensities)
-        peak = intensities.max()
         sigmas = np.array(sigmas)
         index0 = int(len(intensities)/4)
         offset = np.median(intensities[-index0:])
 
-        try:
-            popt, pcov = moffatfit(distances, intensities, sigmas, offset)
-            fit_model = moffat(distances, offset=offset, *popt)
-            residual = np.sum((intensities - fit_model) ** 2)
-            fwhm = 2 * np.sqrt(2**(1/popt[2]) - 1) * popt[1]
-            results.append((i + 1, stack_coo[i], residual, fwhm, popt, peak))
-        except RuntimeError:
-            print(f"Slice {i+1}: フィッティングに失敗しました。")
-            popt = [np.nan, np.nan, np.nan, np.nan]
-
-    #filtered_results = [item for item in results if item[4] <= threshold]
-    sorted_results1 = sorted(results, key=lambda x: x[5])[-5:]
-    #sorted_results = sorted(sorted_results1, key=lambda x: x[2])[:3]
-    sorted_results = sorted(results, key=lambda x: x[5])[-5:]
-    for res in sorted_results:
-        print(f"スライス {res[0]} | 座標: {res[1]} | 残差: {res[2]:.2f} | FWHM: {res[3]:.2f}")
-
-    for res in sorted_results:
-        idx = res[0] - 1
-        slice_data = stack_data[idx]
-        distances, intensities = [], []
-        for y in range(slice_data.shape[0]):
-            for x in range(slice_data.shape[1]):
-                distances.append(np.sqrt((x - local_center_x)**2 + (y - local_center_y)**2))
-                intensities.append(slice_data[y, x])
-
-        distances, intensities = np.array(distances), np.array(intensities)
-        index0 = int(len(intensities)/4)
-        offset = np.median(intensities[-index0:])
-        fit_x = np.linspace(min(distances), max(distances), 500)
-        fit_y = moffat(fit_x, offset=offset, *res[4])
-        plt.figure(figsize=(8, 6))
-        plt.scatter(distances, intensities, s=1, alpha=0.5, label="Data")
-        plt.plot(fit_x, fit_y, color="gray", label="Fit")
-        plt.title(f"{fitsname} Slice {res[0]}: FWHM={res[3]:.2f}")
+        """ 
+        print(locoo)
+        plt.figure(figsize=(10, 10))
+        plt.imshow(sliced_data, origin='lower', cmap='gray', vmin=np.percentile(data, 5), vmax=np.percentile(data, 95))
+        plt.colorbar(label='Pixel Value')
+        plt.title('FITS Image with locoo Points')
+        plt.xlabel('X Coordinate')
+        plt.ylabel('Y Coordinate')
+        plt.scatter(locoo[0], locoo[1], color='red', marker='o', label='locoo Points')
         plt.legend()
-        plt.grid()
-        plt.savefig(f"{fitsname}_slice_{res[0]}.png")
-        #plt.show()
+        plt.show()
+        """
 
-    fwhms = [varr[3] for varr in sorted_results]
-    med_fwhm = sorted(fwhms)[int(len(fwhms)/2)]
-
-    return med_fwhm
-
-
-def calc_fwhm(fitsname, coordsfile):
-    data = fits.getdata(fitsname)
-    coords = read_coofile(coordsfile)
-    slice_size = (17, 17)
-    num_slices = len(coords)
-    stack_data = np.zeros((num_slices, *slice_size), dtype=data.dtype)
-
-    stack_coo  = []
-    valid_slice_count = 0
-    for coo in coords:
-        x, y = int(coo[0]), int(coo[1])
-        x_start, x_end = x - 8, x + 9
-        y_start, y_end = y - 8, y + 9
-        # スライスが画像の範囲内に収まっているかチェック
-        if x_start < 0 or y_start < 0 or x_end > data.shape[1] or y_end > data.shape[0]:
-            print(f"Skipping coordinates ({x}, {y}) - slice out of bounds.")
+        try:
+            popt, _ = curve_fit(
+                moffat_1d_fixed_offset,
+                distances.ravel(),
+                sliced_data.ravel(),
+                p0=initial_guess,
+                absolute_sigma=True,
+                bounds=(
+                    [0, 0.1, 0.1],  # パラメータの下限
+                    [np.inf, 10, 10]  # パラメータの上限
+                )
+            )
+        except:
+            #print('failed')
             continue
+        """
+        if 'haoff' in fitsname:
+            plt.figure(figsize=(8, 6))
+            plt.scatter(distances, intensities, s=1, alpha=0.5, label="Data")
+            if not np.isnan(popt).any():
+                fit_x = np.linspace(min(distances), max(distances), 500)
+                #fit_y = gaussian(fit_x, *popt)
+                #fit_y = lorentzian(fit_x, *popt)
+                fit_y = moffat_1d(fit_x,offset=offset, *popt)
+                plt.plot(fit_x, fit_y, color="gray", label="Fit")
+            plt.xlabel("Distance from Centroid (pixels)")
+            plt.ylabel("Pixel Intensity")
+            plt.title(f"{fitsname} Slice {i+1}, {locoo}")
+            plt.legend()
+            plt.grid()
+            #plt.savefig('p0.png')
+            plt.show()
+        """
+        popts.append(popt)
 
-        stack_data[valid_slice_count] = data[y_start:y_end, x_start:x_end]
-        stack_coo.append(coo)
-        valid_slice_count += 1
-    stack_data = stack_data[:valid_slice_count]
-    fwhm = moffatf_fwhm(stack_data, stack_coo, fitsname)
+    sorted_popts = sorted(popts, key=lambda x: x[0])
 
-    return fwhm
+    #print(f'aaaaaaaaaa{len(stack_data)} {len(stack_locoo)}')
 
+    if len(sorted_popts) >= 3:
+        fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts[-3:]]
+        median_fwhm = statistics.median(fwhms)
+        plot_fit(sorted_popts[-3:])
+    elif len(sorted_popts)==0:
+        print('err calc_fwhm')
+        median_fwhm = None
+    else:
+        fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts]
+        median_fwhm = statistics.median(fwhms)
+        plot_fit(sorted_popts)
+        
 
-def gattyanko(first_txdf, second_txdf, outputfile):
-    with open(first_txdf, 'r') as f1:
-        lines1 = f1.readlines()
-    with open(second_txdf, 'r') as f2:
-        lines2 = f2.readlines()
-
-    first_data = {}
-    for line in lines1:
-        parts = line.split()
-        id_num = int(parts[0])
-        xcenter = float(parts[1])
-        ycenter = float(parts[2])
-        mag = parts[3] if parts[3] != 'INDEF' else 'INDEF'
-        merr = parts[4] if parts[4] != 'INDEF' else 'INDEF'
-        first_data[id_num] = (xcenter, ycenter, mag, merr)
-
-    second_data = {}
-    for line in lines2:
-        parts = line.split()
-        id_num = int(parts[0])
-        xcenter = float(parts[1])
-        ycenter = float(parts[2])
-        mag = parts[3] if parts[3] != 'INDEF' else 'INDEF'
-        merr = parts[4] if parts[4] != 'INDEF' else 'INDEF'
-        second_data[id_num] = (xcenter, ycenter, mag, merr)
-
-
-    with open(outputfile, 'w') as out:
-        out.write(f"\n#First file: {first_txdf}, Second file: {second_txdf}\n")
-        out.write("#ID Xcenter1 Ycenter1 Mag1 Merr1 Xcenter2 Ycenter2 Mag2 Merr2\n")
-
-        # ID 順にデータを並べて書き出す
-        all_ids = sorted(set(first_data.keys()).union(second_data.keys()))
-        for id_num in all_ids:
-            # first のデータ
-            if id_num in first_data:
-                x1, y1, mag1, merr1 = first_data[id_num]
-            else:
-                x1, y1, mag1, merr1 = 'INDEF', 'INDEF', 'INDEF', 'INDEF'
-
-            # second のデータ
-            if id_num in second_data:
-                x2, y2, mag2, merr2 = second_data[id_num]
-            else:
-                x2, y2, mag2, merr2 = 'INDEF', 'INDEF', 'INDEF', 'INDEF'
-
-            # 一行にまとめて書き込む
-            out.write(f"{id_num} {x1} {y1} {mag1} {merr1} {x2} {y2} {mag2} {merr2}\n")
+    return median_fwhm
 
 
+def plot_fit(popts):
+    #print('ok')
+    aaaaaaa=1
 
-def main(path_2_matrix, fwhm1, fwhm2):
+
+def gattyanko(first_txdflist, second_txdflist, fwhm1, fwhm2):
+
+    for first_txdf, second_txdf in zip(first_txdflist, second_txdflist):
+
+        outputfile = f'{first_txdf[:-7]}_{second_txdf[:-7]}.txt'
+
+        with open(first_txdf, 'r') as f1:
+            lines1 = f1.readlines()
+        with open(second_txdf, 'r') as f2:
+            lines2 = f2.readlines()
+
+        first_data = {}
+        for line in lines1:
+            parts = line.split()
+            id_num = int(parts[0])
+            xcenter = float(parts[1]) if parts[1] != 'INDEF' else 'INDEF'
+            ycenter = float(parts[2]) if parts[2] != 'INDEF' else 'INDEF'
+            mag = parts[3] if parts[3] != 'INDEF' else 'INDEF'
+            merr = parts[4] if parts[4] != 'INDEF' else 'INDEF'
+            first_data[id_num] = (xcenter, ycenter, mag, merr)
+
+        second_data = {}
+        for line in lines2:
+            parts = line.split()
+            id_num = int(parts[0])
+            xcenter = float(parts[1]) if parts[1] != 'INDEF' else 'INDEF'
+            ycenter = float(parts[2]) if parts[2] != 'INDEF' else 'INDEF'
+            mag = parts[3] if parts[3] != 'INDEF' else 'INDEF'
+            merr = parts[4] if parts[4] != 'INDEF' else 'INDEF'
+            second_data[id_num] = (xcenter, ycenter, mag, merr)
+
+
+        with open(outputfile, 'w') as out:
+            out.write(f"\n#1st file: {first_txdf} fwhm={fwhm1}\n#2nd file: {second_txdf} fwhm={fwhm2}\n\n")
+            out.write("#ID Xcenter1 Ycenter1 Mag1 Merr1  Xcenter2 Ycenter2 Mag2 Merr2\n\n")
+
+            # ID 順にデータを並べて書き出す
+            all_ids = sorted(set(first_data.keys()).union(second_data.keys()))
+            for id_num in all_ids:
+                # first のデータ
+                if id_num in first_data:
+                    x1, y1, mag1, merr1 = first_data[id_num]
+                else:
+                    x1, y1, mag1, merr1 = 'INDEF', 'INDEF', 'INDEF', 'INDEF'
+
+                # second のデータ
+                if id_num in second_data:
+                    x2, y2, mag2, merr2 = second_data[id_num]
+                else:
+                    x2, y2, mag2, merr2 = 'INDEF', 'INDEF', 'INDEF', 'INDEF'
+
+                # 一行にまとめて書き込む
+                out.write(f"{id_num:3}  {x1:>8} {y1:>8} {mag1:>7} {merr1:>5}  {x2:>8} {y2:>8} {mag2:>7} {merr2:>5}\n")
+
+
+
+def main(path_2_matrix):
     pixscale = {
         'haoff':param.pixscale_haoff, 'haon_':param.pixscale_haon_,
         }
     satcount = {
         'haoff':param.haoff_satcount, 'haon_':param.haon__satcount,
         }
-    filtered_files = glob_pattern()
+    
+    if isinstance(fits_pattern, str):
+        filtered_files = glob_pattern(fits_pattern)
+    else:
+        filtered_files = glob_pattern()
+
     for key1, list1 in filtered_files.items():
+        print(f'\n-----fitsname {list1}-----')
         first_fits  = list1[0]
         second_fits = list1[1]
-        results1 = sta.starfind_center3([first_fits], pixscale[first_fits[:5]],satcount[first_fits[:5]], enable_progress_bar=False)
+        
+        print('do starfind')
+        results1 = sta.starfind_center3([first_fits], pixscale[first_fits[:5]], satcount[first_fits[:5]], [4, 5, 1], 1000, 2000, 3, enable_progress_bar=False)
         starnum         = results1[0][0]
         first_coof      = results1[1][0]
         threshold_lside = results1[2][0]
         matrix = np.load(path_2_matrix)
-        second_coof = adapt_matrix(first_coof, matrix, f'{second_fits[:-5]}.coo')
+
+        print('adapt matrix')
+        second_coof = adapt_matrix(first_coof, matrix, f'{second_fits[:-5]}_DETOTH.coo')
+
+        print('refine center')
+        second_coof = refine_center_2d(second_fits, second_coof)
+
+        print('calc fwhm')
         fwhm1 = calc_fwhm(first_fits, first_coof)
         fwhm2 = calc_fwhm(second_fits, second_coof)
-        magf1 = do_phot([first_fits],  [f'{first_fits[:-5]}.coo'],  fwhm1)
-        magf2 = do_phot([second_fits], [f'{second_fits[:-5]}.coo'], fwhm2)
+
+        if isinstance(force_fwhm_on, (int, float)):
+            fwhm1 = force_fwhm_on
+        if isinstance(force_fwhm_of, (int, float)):
+            fwhm2 = force_fwhm_of
+        if None in (fwhm1, fwhm2):
+            print('fwhmerr')
+            sys.exit()
+
+        print('do phot')
+        magf1 = do_phot([first_fits],  [f'{first_fits[:-5]}.coo'],  fwhm1, coef_annulus_on, coef_dannulus_on)
+        magf2 = do_phot([second_fits], [f'{second_fits[:-5]}_DETOTH.coo'], fwhm2, coef_annulus_of, coef_dannulus_of)
         if not os.path.exists(magf1[0]):
             print(f"ファイル {magf1[0]} が存在しません。")
             continue
-        if not os.path.exists(magf2):
-            print(f"ファイル {magf2} が存在しません。")
+        if not os.path.exists(magf2[0]):
+            print(f"ファイル {magf2[0]} が存在しません。")
             continue
+
+        print('do txdump')
         txdf1 = do_txdump(magf1)
-        txdf2 = do_txdump([magf2])
-        gattyanko(txdf1, txdf2, f'{txdf1[:-7]}_{txdf2[-7]}.txt')
+        txdf2 = do_txdump(magf2)
+        gattyanko(txdf1, txdf2, fwhm1, fwhm2)
+        print('end')
+    print()
 
 
-
-class App(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        self.title("CustomTkinter with Matplotlib")
-        self.geometry("1200x800")
-        self.mainframe = ctk.CTkScrollableFrame(self, width=300, height=200, fg_color="transparent")
-        self.mainframe.pack(pady=20, padx=20, fill="both", expand=True)
-
-        # プロットを保持するフレームを作成
-        self.gsframe = GetSampleFrame(self.mainframe, width=800, height=600)
-        self.gsframe.grid(row=3, column=0, padx=50, pady=20, sticky="nsew")
-        self.rfframe = ReadFileFrame(master=self.mainframe, window=self)
-        self.rfframe.grid(row=0, column=0, pady=10, padx=20, sticky="ew")
-
-
-        # 重心検出を実行するボタンを配置
-        self.cent_button = ctk.CTkButton(self.mainframe, text="重心検出を実行", command=self.gsframe.perform_centroid_detection)
-        self.cent_button.grid(row=1, column=0, pady=10, padx=20, sticky="ew")
-
-        self.homographframe = CalcHomographyFrame(master=self.mainframe, window=self)
-        self.homographframe.grid(row=2, column=0, pady=10, padx=20, sticky="ew")
-
-        self.tsframe = TestMatrixFreame(self.mainframe, width=800, height=600)
-        self.tsframe.grid(row=6, column=0, padx=50, pady=(10, 50), sticky="nsew")
-        self.rfframe2 = ReadFileFrame2(master=self.mainframe, window=self)
-        self.rfframe2.grid(row=4, column=0, pady=(50, 10), padx=20, sticky="ew")
-
-        self.exectframe = ExecTestFrame(master=self.mainframe, window=self)
-        self.exectframe.grid(row=5, column=0, pady=10, padx=20, sticky="ew")
-
-        # ウィンドウのグリッドレイアウト設定
-        self.mainframe.grid_rowconfigure(0, weight=1)
-        self.mainframe.grid_rowconfigure(1, weight=0)
-        self.mainframe.grid_columnconfigure(0, weight=1)
-
-    
     
 
 
@@ -557,9 +582,11 @@ if __name__ == "__main__":
         objparam = Ha_main.readobjfile(param, argvs[1])
         path = os.path.join(param.work_dir)
         iraf.chdir(path)
-        main()
+        if not os.path.exists(matrix_path):
+            print(f'not exists {matrix_path}')
+            sys.exit()
+        main(matrix_path)
 
 
     else:
-        print('usage1 ./ku1mV.py [OBJECT file name] ')
-        print('usage2 ./ku1mV.py [object name][YYMMDD]')
+        print(f'usage ./{argvs[0]} [object name][YYMMDD]')

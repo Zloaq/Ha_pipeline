@@ -566,7 +566,7 @@ def do_starfind(fitslist, param, optkey, infrakey):
     opt_l_threshold = {}
     inf_l_threshold = {}
     
-    def iterate_part(fitslist0, param, h_threshold=10, l_threshold=9, interval=0.2):
+    def iterate_part(fitslist0, param, h_threshold=10, l_threshold=9, interval=0.5):
         band = fitslist0[0][:5]
         pixscale = {
         'haoff':param.pixscale_haoff, 'haon_':param.pixscale_haon_,

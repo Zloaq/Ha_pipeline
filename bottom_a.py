@@ -388,18 +388,22 @@ def phot(fitsname, fwhm, sigma):
     mode = varr[0]
     stddev = varr[1]
     
-    iraf.apphot.datapars.fwhmpsf = fwhm
-    iraf.apphot.datapars.sigma = sigma
-    iraf.apphot.datapars.datamin = float(mode)-2*float(stddev)
-    iraf.apphot.datapars.datamax = 15000
-    iraf.apphot.datapars.readnoise = 10
-    iraf.apphot.datapars.epadu = 1
+    iraf.apphot.datapars.unlearn()
+    #iraf.apphot.datapars.fwhmpsf = fwhm
+    #iraf.apphot.datapars.sigma = sigma
+    #iraf.apphot.datapars.datamin = float(mode)-2*float(stddev)
+    #iraf.apphot.datapars.datamax = 38000
+    #iraf.apphot.datapars.readnoise = 10
+    #iraf.apphot.datapars.epadu = 1
+    #iraf.apphot.datapars.itime = 300
     #まだだだだだだ
 
-    iraf.apphot.fitskypars.salgorithm = 'mode'
-    iraf.apphot.fitskypars.annulus = 2.5*float(fwhm)
+    iraf.apphot.centerpars.unlearn()
+    iraf.apphot.fitskypars.unlearn()
+    #iraf.apphot.fitskypars.salgorithm = 'centroid'
+    iraf.apphot.fitskypars.annulus = 3*float(fwhm)
     iraf.apphot.fitskypars.dannulus = 10
-    iraf.apphot.photpars.apertures = fwhm
+    iraf.apphot.photpars.apertures = 2.5*float(fwhm)
     iraf.apphot.photpars.zmag = 0
 
     iraf.apphot.phot.interactive = 'no'
