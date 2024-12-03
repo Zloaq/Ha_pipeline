@@ -341,6 +341,7 @@ def calc_fwhm(fitsname, coof):
     y = y_indices.ravel()
 
     popts = []
+
     for sliced_data, locoo in zip(stack_data, stack_locoo):
         data_flat_sorted = np.sort(sliced_data.ravel())
         index0 = int(len(data_flat_sorted) / 2)
@@ -425,6 +426,10 @@ def calc_fwhm(fitsname, coof):
 
     sorted_popts = sorted(popts, key=lambda x: x[0])
 
+    sorted_indices = [popts.index(item) for item in sorted_popts]
+    sorted_distances = [distances[i] for i in sorted_indices]
+    sorted_intensities =  [intensities[i] for i in sorted_indices]
+
     #print(f'aaaaaaaaaa{len(stack_data)} {len(stack_locoo)}')
 
     if len(sorted_popts) >= 3:
@@ -443,9 +448,20 @@ def calc_fwhm(fitsname, coof):
     return median_fwhm
 
 
-def plot_fit(popts):
+def plot_fit(popts, filter):
     #print('ok')
     aaaaaaa=1
+    for popt in popts:
+        plt.figure(figsize=(10, 10))
+        #plt.imshow(sliced_data, origin='lower', cmap='gray', vmin=np.percentile(data, 5), vmax=np.percentile(data, 95))
+        plt.colorbar(label='Pixel Value')
+        plt.title('FITS Image with locoo Points')
+        plt.xlabel('X Coordinate')
+        plt.ylabel('Y Coordinate')
+        plt.scatter(locoo[0], locoo[1], color='red', marker='o', label='locoo Points')
+        plt.legend()
+        plt.show()
+
 
 
 def gattyanko(first_txdflist, second_txdflist, fwhm1, fwhm2):
