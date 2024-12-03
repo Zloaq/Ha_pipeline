@@ -435,14 +435,14 @@ def calc_fwhm(fitsname, coof):
     if len(sorted_popts) >= 3:
         fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts[-3:]]
         median_fwhm = statistics.median(fwhms)
-        plot_fit(sorted_popts[-3:])
+        plot_fit(sorted_popts[-3:], sorted_distances[-3:], sorted_intensities[-3:])
     elif len(sorted_popts)==0:
         print('err calc_fwhm')
         median_fwhm = None
     else:
         fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts]
         median_fwhm = statistics.median(fwhms)
-        plot_fit(sorted_popts)
+        plot_fit(sorted_popts, sorted_distances, sorted_intensities)
         
 
     return median_fwhm

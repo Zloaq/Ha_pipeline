@@ -19,8 +19,8 @@ def comb_pset(fitslist):
         header = bottom_a.readheader(fitslist[band])
         for filename, obname in zip(header.filename, header.object):
             if f'{filename[:11]}_{obname}' not in sep_bandset:
-                sep_bandset[f'{filename[:11]}-{obname}'] = []
-            sep_bandset[f'{filename[:11]}-{obname}'].append(filename)
+                sep_bandset[f'{filename[:11]}_{obname}'] = []
+            sep_bandset[f'{filename[:11]}_{obname}'].append(filename)
 
     for nameid, varrlist in tqdm(sep_bandset.items(), desc='{:<13}'.format("combine")):
         #print(f'{nameid}\n{sep_bandset[nameid]}')
@@ -32,9 +32,7 @@ def comb_pset(fitslist):
 def comb_all(fitslist, day, obname):
 
     for band, varrlist in tqdm(fitslist.items(), desc='{:<13}'.format("comb all")):
-        outname = f'{band}{day}_{obname}.fits'
-        if os.path.exists(outname):
-            outname = f'{band}{day}_{obname}_all.fits'
+        outname = f'{band}{day}_{obname}_all.fits'
         bottom_a.combine(varrlist, outname, 'average')
 
 """
