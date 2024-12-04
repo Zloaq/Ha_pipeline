@@ -406,6 +406,7 @@ def execute_code(param, objparam, log, bands=['haon_', 'haoff']):
 
 	print(f'start pipeline')
 	print(f'object {argvs[1]}')
+	print(f'date   {argvs[2]}')
 
 	if param.quicklook == 1:
 		print('quicklook mode')
