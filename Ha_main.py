@@ -262,6 +262,11 @@ def match_object(fitslist, search_name_list):
 	for index, fits_file in enumerate(fitslist):
 		try:
 			HDUlist = fits.open(fits_file)
+			temp_obname = HDUlist[0].header.get('OBJECT')
+			if temp_obname == None:
+				print('header is broken', fits_file)
+				wrong_index.append(index)
+				continue
 			obnamelist.append(HDUlist[0].header['OBJECT'])
 		except:
 			print('header is broken', fits_file)
