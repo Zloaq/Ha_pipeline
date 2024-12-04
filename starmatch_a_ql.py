@@ -21,7 +21,7 @@ import bottom_a
 
 import matplotlib.pyplot as plt
 
-def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], minstarnum=0, maxstarnum=100, minthreshold=1.0, enable_progress_bar=True):
+def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], minstarnum=0, maxstarnum=100, minthreshold=3, enable_progress_bar=True):
     
     def squareness(region_slice):
         width = region_slice[1].stop - region_slice[1].start
@@ -67,7 +67,7 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
         return filtered_labels.tolist(), filtered_objects
         
 
-    def detect_round_clusters(filtered_labels, filtered_objects, labeled_image, square=3, fillrate=0.5):
+    def detect_round_clusters(filtered_labels, filtered_objects, labeled_image, square=10, fillrate=0.45):
         squareness_values = np.array([squareness(region_slice) for region_slice in filtered_objects])
         filling_rates = np.array([filling_rate(filtered_labels[i], region_slice, labeled_image) 
                                 for i, region_slice in enumerate(filtered_objects)])
@@ -79,7 +79,7 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
 
         return round_clusters, slice_list
     
-    
+
     def moffat_2d(coords, A, alpha, beta, x_c, y_c, offset):
         x, y = coords
         return A * (1 + ((x - x_c)**2 + (y - y_c)**2) / alpha**2) ** (-beta) + offset
@@ -624,7 +624,7 @@ def do_starfind(fitslist, param, optkey, infrakey):
         for varr in optkey:
             #threshold1 = calc_threshold(fitslist[varr])
             #optstarlist[varr], optcoolist[varr] = iterate_part(fitslist[varr], param, threshold1)
-            optstarlist[varr], optcoolist[varr], opt_l_threshold[varr] = iterate_part(fitslist[varr], param, 30, 26, 2)
+            optstarlist[varr], optcoolist[varr], opt_l_threshold[varr] = iterate_part(fitslist[varr], param, 11, 10, 0.2)
 
     if infrakey:
         for varr in infrakey:

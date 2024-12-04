@@ -376,7 +376,7 @@ def calc_fwhm(fitsname, coof):
         index0 = int(len(intensities)/4)
         offset = np.median(intensities[-index0:])
 
-        """ 
+        """
         print(locoo)
         plt.figure(figsize=(10, 10))
         plt.imshow(sliced_data, origin='lower', cmap='gray', vmin=np.percentile(data, 5), vmax=np.percentile(data, 95))
@@ -404,7 +404,7 @@ def calc_fwhm(fitsname, coof):
         except:
             #print('failed')
             continue
-        """
+        
         if 'haoff' in fitsname:
             plt.figure(figsize=(8, 6))
             plt.scatter(distances, intensities, s=1, alpha=0.5, label="Data")
@@ -421,47 +421,48 @@ def calc_fwhm(fitsname, coof):
             plt.grid()
             #plt.savefig('p0.png')
             plt.show()
-        """
+        
         popts.append(popt)
 
     sorted_popts = sorted(popts, key=lambda x: x[0])
 
-    sorted_indices = [popts.index(item) for item in sorted_popts]
-    sorted_distances = [distances[i] for i in sorted_indices]
-    sorted_intensities =  [intensities[i] for i in sorted_indices]
+    #sorted_indices = [popts.index(item) for item in sorted_popts]
+    #sorted_distances = [distances[i] for i in sorted_indices]
+    #sorted_intensities =  [intensities[i] for i in sorted_indices]
 
     #print(f'aaaaaaaaaa{len(stack_data)} {len(stack_locoo)}')
 
     if len(sorted_popts) >= 3:
         fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts[-3:]]
         median_fwhm = statistics.median(fwhms)
-        plot_fit(sorted_popts[-3:], sorted_distances[-3:], sorted_intensities[-3:])
+        #plot_fit(fitsname, sorted_popts[-3:], sorted_distances[-3:], sorted_intensities[-3:])
     elif len(sorted_popts)==0:
         print('err calc_fwhm')
         median_fwhm = None
     else:
         fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts]
         median_fwhm = statistics.median(fwhms)
-        plot_fit(sorted_popts, sorted_distances, sorted_intensities)
+        #plot_fit(fitsname, sorted_popts, sorted_distances, sorted_intensities)
         
 
     return median_fwhm
 
 
-def plot_fit(popts, filter):
+def plot_fit(fitsname, popts, distances, intensities):
     #print('ok')
     aaaaaaa=1
-    for popt in popts:
+    """
+    for popt, distance, intensity in zip(popts, distances, intensities):
         plt.figure(figsize=(10, 10))
         #plt.imshow(sliced_data, origin='lower', cmap='gray', vmin=np.percentile(data, 5), vmax=np.percentile(data, 95))
         plt.colorbar(label='Pixel Value')
         plt.title('FITS Image with locoo Points')
         plt.xlabel('X Coordinate')
         plt.ylabel('Y Coordinate')
-        plt.scatter(locoo[0], locoo[1], color='red', marker='o', label='locoo Points')
+        plt.scatter(distance, intensity, color='red', marker='o', label='locoo Points')
         plt.legend()
         plt.show()
-
+    """
 
 
 def gattyanko(first_txdflist, second_txdflist, fwhm1, fwhm2):

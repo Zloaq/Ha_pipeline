@@ -67,7 +67,7 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
         return filtered_labels.tolist(), filtered_objects
         
 
-    def detect_round_clusters(filtered_labels, filtered_objects, labeled_image, square=3, fillrate=0.5):
+    def detect_round_clusters(filtered_labels, filtered_objects, labeled_image, square=10, fillrate=0.45):
         squareness_values = np.array([squareness(region_slice) for region_slice in filtered_objects])
         filling_rates = np.array([filling_rate(filtered_labels[i], region_slice, labeled_image) 
                                 for i, region_slice in enumerate(filtered_objects)])
