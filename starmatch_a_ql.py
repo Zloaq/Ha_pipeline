@@ -67,7 +67,7 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
         return filtered_labels.tolist(), filtered_objects
         
 
-    def detect_round_clusters(filtered_labels, filtered_objects, labeled_image, square=10, fillrate=0.45):
+    def detect_round_clusters(filtered_labels, filtered_objects, labeled_image, square=8, fillrate=0.45):
         squareness_values = np.array([squareness(region_slice) for region_slice in filtered_objects])
         filling_rates = np.array([filling_rate(filtered_labels[i], region_slice, labeled_image) 
                                 for i, region_slice in enumerate(filtered_objects)])
@@ -186,17 +186,20 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
 
         return centroids2
     
-    def chose_unique_coords(center_list):
+    def chose_unique_coords(center_list, threshold=3):
 
-        unique_center_list = []
-        seen = set()
-        for y, x in center_list:
-            y_int, x_int = int(y), int(x)
-            if (y_int, x_int) not in seen:
-                unique_center_list.append((y, x))
-                seen.add((y_int, x_int))
-        
-        return unique_center_list
+        center_array = np.array(center_list)
+        unique_centers = []
+
+        while len(center_array) > 0:
+            ref_point = center_array[0]
+            unique_centers.append(ref_point)
+
+            distances = np.sqrt(np.sum((center_array - ref_point) ** 2, axis=1))
+
+            center_array = center_array[distances > threshold]
+
+        return unique_centers
 
     def write_to_txt(centers, filename):
         with open(filename, 'w') as f1:
@@ -236,6 +239,7 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
                 searchrange0[1] += 1
 
             while searchrange0[0] >= minthreshold:
+                print(searchrange0)
                 center_list = []
                 for threshold in np.arange(searchrange0[0], searchrange0[1], searchrange0[2]):
                     binarized_data = binarize_data(data, threshold, rms, med)
@@ -373,6 +377,8 @@ def triangle_match(inputf, referencef, outputf, match_threshold=0.05, shift_thre
         descs_input = np.array([desc[0] for desc in descriptors_input])
         descs_ref = np.array([desc[0] for desc in descriptors_ref])
 
+        if len(descs_input) == 0 or len(descs_ref) == 0:
+            return None
 
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(descs_ref)
         distances, indices = nbrs.kneighbors(descs_input)
@@ -598,26 +604,6 @@ def do_starfind(fitslist, param, optkey, infrakey):
 
         return starnumlist, coordsfilelist, l_threshold1
 
-    def calc_threshold(fitslist0):
-        satcount = {
-        'haoff':param.haoff_satcount, 'haon_':param.haon__satcount,
-        }
-        band = fitslist0[0][:5]
-        stdlist0 = []
-        skcount0 = []
-        for varr in fitslist0:
-            stdlist0.append(bottom_a.skystat(varr, 'stddev'))
-            hdu = fits.open(varr)
-            skcount0.append(float(hdu[0].header.get('SKYCOUNT', 0)))
-        np_stdlist0 = np.array(stdlist0)
-        np_skcount0 = np.array(skcount0)
-        medstd = np.median(np_stdlist0)
-        medskc = np.median(np_skcount0)
-        threshold0 = (satcount[band] - medskc)/medstd
-        #print(f'{threshold0} = ({satcount[band]} - {medskc})/{medstd}')
-        recom_threshold = int(threshold0)
-
-        return recom_threshold
 
 
     if optkey:
@@ -828,7 +814,6 @@ def do_geotran(fitslist, param, optkey, infrakey, opt_matchb, inf_matchb, opt_ge
         return moved_coox, moved_cooy
 
     opt_geomdict = {}
-    
     for varr in opt_geomfile:
         tempfits = f'{varr}{opt_matchb[varr]}.fits'
         hdu = fits.open(tempfits)
@@ -962,6 +947,8 @@ def main(fitslist, param):
     inf_match    = result_varr[3]
     inf_matchb   = result_varr[4]
     inf_matchedf = result_varr[5]
+
+    print(f'aaaaa{opt_match}')
 
     if all(value == 0 for value in opt_match.values()) and all(value == 0 for value in inf_match.values()):
         print(f'all matches failed')
