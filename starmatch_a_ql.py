@@ -21,6 +21,7 @@ import bottom_a
 
 import matplotlib.pyplot as plt
 
+
 def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], minstarnum=0, maxstarnum=100, minthreshold=3, enable_progress_bar=True):
     
     def squareness(region_slice):
@@ -139,9 +140,9 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
         max_y, max_x = data.shape
 
         data_flat_sorted = np.sort(data.ravel())
-        index0 = int(len(data_flat_sorted) / 4)
-        lower_quarter = data_flat_sorted[:index0]
-        offset_fixed = np.median(lower_quarter)
+        index0 = int(len(data_flat_sorted) / 2)
+        lower = data_flat_sorted[:index0]
+        offset_fixed = np.median(lower)
 
         # スライスのリストを numpy 配列に変換
         slices_array = np.array([[sl[0].start, sl[0].stop, sl[1].start, sl[1].stop] for sl in slices])
@@ -233,15 +234,16 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
             med = bottom_a.skystat(filename, 'median')
 
             roopnum = [0, 0]
-
             if searchrange0[0] < minthreshold:
                 searchrange0[0] += 1
                 searchrange0[1] += 1
 
+            thDiff = 0.5
             while searchrange0[0] >= minthreshold:
-                print(searchrange0)
                 center_list = []
+                #print()
                 for threshold in np.arange(searchrange0[0], searchrange0[1], searchrange0[2]):
+                    
                     binarized_data = binarize_data(data, threshold, rms, med)
                     labeled_image, _ = ndimage.label(binarized_data)
                     object_slices = ndimage.find_objects(labeled_image)
@@ -255,27 +257,38 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
 
                     centers = clustar_centroid(data, slice_list)
                     center_list.extend(centers)
-                #多分ファイル操作で時間食ってる
+
+
                 unique_center_list = chose_unique_coords(center_list)
                 starnum = len(unique_center_list)
                 #print(f'{filename}, {searchrange0}')
 
-                if roopnum[0] > 0 and roopnum[1] > 0:
-                    if searchrange0[0] > minthreshold:
-                        searchrange0[0] -= 0.5
-                        searchrange0[1] -= 0.5
+                if loopnum[0] > 0 and loopnum[1] > 0:
+                    if searchrange0[0] < minthreshold:
+                        searchrange0[0] -= thDiff
+                        searchrange0[1] -= thDiff
                     break
 
-                elif (starnum < minstarnum) & (searchrange0[0] > minthreshold):
-                    #print(f'retry starfind')
-                    searchrange0[0] -= 0.5
-                    searchrange0[1] -= 0.5
-                    roopnum[0] += 1
+                elif (starnum < minstarnum) and (searchrange0[0] > minthreshold):
+                    if searchrange0[0] > minthreshold + 6:
+                        thDiff = 5
+                        loopnum = [0, 0]
+                    else:
+                        thDiff = 0.5
+                    searchrange0[0] -= thDiff
+                    searchrange0[1] -= thDiff
+                    loopnum[0] += 1
                     continue
+
                 elif starnum > maxstarnum:
-                    searchrange0[0] += 0.5
-                    searchrange0[1] += 0.5
-                    roopnum[1] += 1
+                    if loopnum[1] > 4:
+                        thDiff = 5
+                        loopnum = [0, 0]
+                    else:
+                        thDiff = 0.5
+                    searchrange0[0] += thDiff
+                    searchrange0[1] += thDiff
+                    loopnum[1] += 1
                     continue
                 else:
                     break
@@ -346,7 +359,7 @@ def triangle_match(inputf, referencef, outputf, match_threshold=0.05, shift_thre
                                       [h[3], h[4], h[5]]])
             affine_matrices.append(affine_matrix)
         return np.array(affine_matrices)
-        
+
 
     def evaluate_affine_matrix(matrix, src_points, dst_points, threshold):
         transformed_points = (matrix[:, :2] @ src_points.T).T + matrix[:, 2]

@@ -300,7 +300,6 @@ def refine_center_2d(fitsname, coof, tol=1e-5, max_iter=10):
         for coord in centroids:
             f_out.write(" ".join(map(str, coord)) + "\n")
 
-        
     return coof
 
 
@@ -315,6 +314,7 @@ def calc_fwhm(fitsname, coof):
     stack_data = np.zeros((num_coords, 17, 17))
     count = 0
     stack_locoo = []
+    stack_glcoo = []
     for i, coo in enumerate(coords):
         if 'INDEF' in coo:
             continue
@@ -328,10 +328,11 @@ def calc_fwhm(fitsname, coof):
         stack_data[count] = slice_image
         count += 1
         stack_locoo.append((coo[0] - int(x) + 8, coo[1] - int(y) + 8))
+        stack_glcoo.append((coo[0], coo[1]))
     result = result[:count]
 
     def moffat_1d_fixed_offset(distances, A, alpha, beta):
-        return moffat_1d(distances, A, alpha, beta, offset_fixed)
+        return moffat_1d(distances, A, alpha, beta, offset)
 
     alpha_init = 2.8
     beta_init = 2
@@ -340,13 +341,16 @@ def calc_fwhm(fitsname, coof):
     x = x_indices.ravel()
     y = y_indices.ravel()
 
-    popts = []
+    data_flat_sorted = np.sort(data.ravel())
+    index0 = int(len(data)/4)
+    offset = np.median(data_flat_sorted[:index0])
+    offset = 0
 
-    for sliced_data, locoo in zip(stack_data, stack_locoo):
-        data_flat_sorted = np.sort(sliced_data.ravel())
-        index0 = int(len(data_flat_sorted) / 2)
-        lower_data = data_flat_sorted[:index0]
-        offset_fixed = np.median(lower_data)
+    popt_list = []
+    distances_list = []
+    intensities_list = []
+
+    for index1, (sliced_data, locoo) in enumerate(zip(stack_data, stack_locoo)):
 
         A_init = np.max(sliced_data)
         initial_guess = [A_init, alpha_init, beta_init]
@@ -373,8 +377,7 @@ def calc_fwhm(fitsname, coof):
         distances = np.array(distances)
         intensities = np.array(intensities)
         sigmas = np.array(sigmas)
-        index0 = int(len(intensities)/4)
-        offset = np.median(intensities[-index0:])
+
 
         """
         print(locoo)
@@ -386,6 +389,7 @@ def calc_fwhm(fitsname, coof):
         plt.ylabel('Y Coordinate')
         plt.scatter(locoo[0], locoo[1], color='red', marker='o', label='locoo Points')
         plt.legend()
+        plt.savefig(f'')
         plt.show()
         """
 
@@ -405,65 +409,98 @@ def calc_fwhm(fitsname, coof):
             #print('failed')
             continue
         
-        if 'haoff' in fitsname:
-            plt.figure(figsize=(8, 6))
-            plt.scatter(distances, intensities, s=1, alpha=0.5, label="Data")
-            if not np.isnan(popt).any():
-                fit_x = np.linspace(min(distances), max(distances), 500)
-                #fit_y = gaussian(fit_x, *popt)
-                #fit_y = lorentzian(fit_x, *popt)
-                fit_y = moffat_1d(fit_x,offset=offset, *popt)
-                plt.plot(fit_x, fit_y, color="gray", label="Fit")
-            plt.xlabel("Distance from Centroid (pixels)")
-            plt.ylabel("Pixel Intensity")
-            plt.title(f"{fitsname} Slice {i+1}, {locoo}")
-            plt.legend()
-            plt.grid()
-            #plt.savefig('p0.png')
-            plt.show()
+        #if 'haoff' in fitsname:
+        """
+        plt.figure(figsize=(8, 6))
+        plt.scatter(distances, intensities, s=1, alpha=0.5, label="Data")
+        if not np.isnan(popt).any():
+            fit_x = np.linspace(min(distances), max(distances), 500)
+            #fit_y = gaussian(fit_x, *popt)
+            #fit_y = lorentzian(fit_x, *popt)
+            fit_y = moffat_1d(fit_x,offset=offset, *popt)
+            plt.plot(fit_x, fit_y, color="gray", label="Fit")
+        plt.xlabel("Distance from Centroid (pixels)")
+        plt.ylabel("Pixel Intensity")
+        plt.title(f"{fitsname} Slice {i+1}, {stack_glcoo[index1]}")
+        plt.legend()
+        plt.grid()
+        #plt.savefig('p0.png')
+        plt.show()
+        """
         
-        popts.append(popt)
+        popt_list.append(popt)
+        distances_list.append(distances)
+        intensities_list.append(intensities)
 
-    sorted_popts = sorted(popts, key=lambda x: x[0])
-
-    #sorted_indices = [popts.index(item) for item in sorted_popts]
-    #sorted_distances = [distances[i] for i in sorted_indices]
-    #sorted_intensities =  [intensities[i] for i in sorted_indices]
+    sorted_data = sorted(zip(popt_list, distances_list, intensities_list), key=lambda x: x[0][0])
+    sorted_popts, sorted_distances, sorted_intensities = zip(*sorted_data)
 
     #print(f'aaaaaaaaaa{len(stack_data)} {len(stack_locoo)}')
 
-    if len(sorted_popts) >= 3:
-        fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts[-3:]]
+    if len(sorted_popts) >= 5:
+        fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts[-5:]]
         median_fwhm = statistics.median(fwhms)
-        #plot_fit(fitsname, sorted_popts[-3:], sorted_distances[-3:], sorted_intensities[-3:])
+        plot_fit(fitsname, sorted_popts[-5:], sorted_distances[-5:], sorted_intensities[-5:], offset)
     elif len(sorted_popts)==0:
         print('err calc_fwhm')
         median_fwhm = None
     else:
         fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts]
         median_fwhm = statistics.median(fwhms)
-        #plot_fit(fitsname, sorted_popts, sorted_distances, sorted_intensities)
+        plot_fit(fitsname, sorted_popts, sorted_distances, sorted_intensities, offset)
         
 
     return median_fwhm
 
 
-def plot_fit(fitsname, popts, distances, intensities):
+def plot_fit(fitsname, popt_list, distances_list, intensities_list, offset):
     #print('ok')
     aaaaaaa=1
     """
-    for popt, distance, intensity in zip(popts, distances, intensities):
-        plt.figure(figsize=(10, 10))
-        #plt.imshow(sliced_data, origin='lower', cmap='gray', vmin=np.percentile(data, 5), vmax=np.percentile(data, 95))
-        plt.colorbar(label='Pixel Value')
+    for index, (popt, distances, intensities) in enumerate(zip(popt_list, distances_list, intensities_list)):
+        plt.figure(figsize=(8, 6))
+        plt.scatter(distances, intensities, s=1, alpha=0.5, label="Data")
+        if not np.isnan(popt).any():
+            fit_x = np.linspace(min(distances), max(distances), 500)
+            #fit_y = gaussian(fit_x, *popt)
+            #fit_y = lorentzian(fit_x, *popt)
+            fit_y = moffat_1d(fit_x,offset=offset, *popt)
+            plt.plot(fit_x, fit_y, color="gray", label="Fit")
         plt.title('FITS Image with locoo Points')
         plt.xlabel('X Coordinate')
         plt.ylabel('Y Coordinate')
-        plt.scatter(distance, intensity, color='red', marker='o', label='locoo Points')
         plt.legend()
-        plt.show()
+        plt.savefig(f'fwhm{index+1}_{fitsname}.png')
+        #plt.show()
+        plt.close()
     """
+    num_plots = len(popt_list)
+    cols = 3  # 1行に表示するプロットの数
+    rows = (num_plots + cols - 1) // cols  # 必要な行数を計算
+    
+    # サブプロットを作成
+    fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
+    axes = axes.flatten()  # 配列として扱えるようにする
 
+    for index, (popt, distances, intensities, ax) in enumerate(zip(popt_list, distances_list, intensities_list, axes)):
+        ax.scatter(distances, intensities, s=1, alpha=0.5, label="Data")
+        if not np.isnan(popt).any():
+            fit_x = np.linspace(min(distances), max(distances), 500)
+            fit_y = moffat_1d(fit_x, offset=offset, *popt)
+            ax.plot(fit_x, fit_y, color="gray", label="Fit")
+        ax.set_title(f'Plot {index + 1}')
+        ax.set_xlabel('Distance')
+        ax.set_ylabel('Intensity')
+        ax.legend()
+
+    # 不要な空のプロットを削除
+    for ax in axes[num_plots:]:
+        ax.remove()
+
+    # 画像として保存
+    plt.tight_layout()
+    plt.savefig(f'fwhm_{fitsname}.png')
+    plt.close()
 
 def gattyanko(first_txdflist, second_txdflist, fwhm1, fwhm2):
 
@@ -538,7 +575,7 @@ def main(path_2_matrix):
         print(f'\n-----fitsname {list1}-----')
         first_fits  = list1[0]
         second_fits = list1[1]
-        
+        print('[on-off process]')
         print('do starfind')
         results1 = sta.starfind_center3([first_fits], pixscale[first_fits[:5]], satcount[first_fits[:5]], [4, 5, 1], 1000, 2000, 3, enable_progress_bar=False)
         starnum         = results1[0][0]
@@ -578,6 +615,31 @@ def main(path_2_matrix):
         txdf1 = do_txdump(magf1)
         txdf2 = do_txdump(magf2)
         gattyanko(txdf1, txdf2, fwhm1, fwhm2)
+
+        #ここまでが on - off
+        print('[off LMT-mag process]')
+        print('do starfind')
+        results1 = sta.starfind_center3([second_fits], pixscale[second_fits[:5]], satcount[second_fits[:5]], [4, 5, 1], 1000, 2000, 3, enable_progress_bar=False)
+        starnum         = results1[0][0]
+        second_coof      = results1[1][0]
+        threshold_lside = results1[2][0]
+
+        print('calc fwhm')
+        fwhm3 = calc_fwhm(second_fits, second_coof)
+        if isinstance(force_fwhm_of, (int, float)):
+            fwhm3 = force_fwhm_of
+        if fwhm3 == None:
+            print('fwhmerr')
+            sys.exit()
+
+        print('do phot')
+        magf3 = do_phot([second_fits],  [f'{second_fits[:-5]}.coo'],  fwhm3, coef_annulus_of, coef_dannulus_of)
+        if not os.path.exists(magf3[0]):
+            print(f"ファイル {magf3[0]} が存在しません。")
+            continue
+        print('do txdump')
+        txdf3 = do_txdump(magf3)
+        
         print('end')
     print()
 
@@ -606,4 +668,4 @@ if __name__ == "__main__":
 
 
     else:
-        print(f'usage ./{argvs[0]} [object name][YYMMDD]')
+        print(f'usage ./{argvs[0]} [object name] [YYMMDD]')

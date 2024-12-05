@@ -139,9 +139,9 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
         max_y, max_x = data.shape
 
         data_flat_sorted = np.sort(data.ravel())
-        index0 = int(len(data_flat_sorted) / 4)
-        lower_quarter = data_flat_sorted[:index0]
-        offset_fixed = np.median(lower_quarter)
+        index0 = int(len(data_flat_sorted) / 2)
+        lower = data_flat_sorted[:index0]
+        offset_fixed = np.median(lower)
 
         # スライスのリストを numpy 配列に変換
         slices_array = np.array([[sl[0].start, sl[0].stop, sl[1].start, sl[1].stop] for sl in slices])
@@ -235,9 +235,12 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
                 searchrange0[0] += 1
                 searchrange0[1] += 1
 
+            thDiff = 0.5
             while searchrange0[0] >= minthreshold:
                 center_list = []
+                #print()
                 for threshold in np.arange(searchrange0[0], searchrange0[1], searchrange0[2]):
+                    
                     binarized_data = binarize_data(data, threshold, rms, med)
                     labeled_image, _ = ndimage.label(binarized_data)
                     object_slices = ndimage.find_objects(labeled_image)
@@ -251,27 +254,38 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
 
                     centers = clustar_centroid(data, slice_list)
                     center_list.extend(centers)
-                #多分ファイル操作で時間食ってる
+
+
                 unique_center_list = chose_unique_coords(center_list)
                 starnum = len(unique_center_list)
                 #print(f'{filename}, {searchrange0}')
 
-                if roopnum[0] > 0 and roopnum[1] > 0:
-                    if searchrange0[0] > minthreshold:
-                        searchrange0[0] -= 0.5
-                        searchrange0[1] -= 0.5
+                if loopnum[0] > 0 and loopnum[1] > 0:
+                    if searchrange0[0] < minthreshold:
+                        searchrange0[0] -= thDiff
+                        searchrange0[1] -= thDiff
                     break
 
-                elif (starnum < minstarnum) & (searchrange0[0] > minthreshold):
-                    #print(f'retry starfind')
-                    searchrange0[0] -= 0.5
-                    searchrange0[1] -= 0.5
-                    roopnum[0] += 1
+                elif (starnum < minstarnum) and (searchrange0[0] > minthreshold):
+                    if searchrange0[0] > minthreshold + 6:
+                        thDiff = 5
+                        loopnum = [0, 0]
+                    else:
+                        thDiff = 0.5
+                    searchrange0[0] -= thDiff
+                    searchrange0[1] -= thDiff
+                    loopnum[0] += 1
                     continue
+
                 elif starnum > maxstarnum:
-                    searchrange0[0] += 0.5
-                    searchrange0[1] += 0.5
-                    roopnum[1] += 1
+                    if loopnum[1] > 4:
+                        thDiff = 10
+                        loopnum = [0, 0]
+                    else:
+                        thDiff = 0.5
+                    searchrange0[0] += thDiff
+                    searchrange0[1] += thDiff
+                    loopnum[1] += 1
                     continue
                 else:
                     break
@@ -619,13 +633,13 @@ def do_starfind(fitslist, param, optkey, infrakey):
         for varr in optkey:
             #threshold1 = calc_threshold(fitslist[varr])
             #optstarlist[varr], optcoolist[varr] = iterate_part(fitslist[varr], param, threshold1)
-            optstarlist[varr], optcoolist[varr], opt_l_threshold[varr] = iterate_part(fitslist[varr], param, 30, 26, 2)
+            optstarlist[varr], optcoolist[varr], opt_l_threshold[varr] = iterate_part(fitslist[varr], param, 5, 9, 2)
 
     if infrakey:
         for varr in infrakey:
             #threshold1 = calc_threshold(fitslist[varr])
             #infstarlist[varr], infcoolist[varr] = iterate_part(fitslist[varr], param, threshold1)
-            infstarlist[varr], infcoolist[varr], inf_l_threshold[varr] = iterate_part(fitslist[varr], param, 15, 14)    
+            infstarlist[varr], infcoolist[varr], inf_l_threshold[varr] = iterate_part(fitslist[varr], param, 5, 6)    
 
     return optstarlist, optcoolist, infstarlist, infcoolist
 
