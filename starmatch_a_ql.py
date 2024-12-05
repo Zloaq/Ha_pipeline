@@ -219,8 +219,8 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
             filename = fitslist[iterate]
             data = fits.getdata(filename)
             header = fits.getheader(filename)
-            offra_pix = int(float(header['OFFSETRA'])/pixscale)
-            offde_pix = int(float(header['OFFSETDE'])/pixscale)
+            offra_pix = int(float(header.get('OFFSETRA', 0)) / pixscale)
+            offde_pix = int(float(header.get('OFFSETDE', 0)) / pixscale)
             if offra_pix > 0:
                 data[:, :offra_pix] = 0
             elif offra_pix < 0:
@@ -233,17 +233,15 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
             rms = bottom_a.skystat(filename, 'stddev')
             med = bottom_a.skystat(filename, 'median')
 
-            roopnum = [0, 0]
+            loopnum = [0, 0]
             if searchrange0[0] < minthreshold:
-                searchrange0[0] += 1
-                searchrange0[1] += 1
+                searchrange0 = searchrange.copy()
 
             thDiff = 0.5
             while searchrange0[0] >= minthreshold:
                 center_list = []
-                #print()
                 for threshold in np.arange(searchrange0[0], searchrange0[1], searchrange0[2]):
-                    
+
                     binarized_data = binarize_data(data, threshold, rms, med)
                     labeled_image, _ = ndimage.label(binarized_data)
                     object_slices = ndimage.find_objects(labeled_image)
@@ -261,7 +259,6 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
 
                 unique_center_list = chose_unique_coords(center_list)
                 starnum = len(unique_center_list)
-                #print(f'{filename}, {searchrange0}')
 
                 if loopnum[0] > 0 and loopnum[1] > 0:
                     if searchrange0[0] < minthreshold:
@@ -275,14 +272,15 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
                         loopnum = [0, 0]
                     else:
                         thDiff = 0.5
+
                     searchrange0[0] -= thDiff
                     searchrange0[1] -= thDiff
                     loopnum[0] += 1
                     continue
 
                 elif starnum > maxstarnum:
-                    if loopnum[1] > 4:
-                        thDiff = 5
+                    if loopnum[1] > 3:
+                        thDiff = 10
                         loopnum = [0, 0]
                     else:
                         thDiff = 0.5
@@ -292,7 +290,7 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
                     continue
                 else:
                     break
-
+            
             file = f'{filename[:-5]}.coo'
             write_to_txt(unique_center_list, file)
             coordsfilelist.append(file)
@@ -537,7 +535,7 @@ def geotparam(param, file_list, base_rotate):
         geotp['fitsid']=filename[5:-4]
         tempfits = f'{filename[0:-4]}.fits'
         hdu = fits.open(tempfits)
-        move_rotate = float(hdu[0].header['OFFSETRO']) or 0
+        move_rotate = float(hdu[0].header.get('OFFSETRO', 0))
         rotate_diff = abs(base_rotate - move_rotate)
         rotate1 = 360 - rotate_diff
         rotate2 = rotate_diff
@@ -593,7 +591,7 @@ def do_starfind(fitslist, param, optkey, infrakey):
     opt_l_threshold = {}
     inf_l_threshold = {}
     
-    def iterate_part(fitslist0, param, h_threshold=10, l_threshold=9, interval=0.2):
+    def iterate_part(fitslist0, param, l_threshold=9, h_threshold=10, interval=0.2):
         band = fitslist0[0][:5]
         pixscale = {
         'haoff':param.pixscale_haoff, 'haon_':param.pixscale_haon_,
@@ -623,13 +621,13 @@ def do_starfind(fitslist, param, optkey, infrakey):
         for varr in optkey:
             #threshold1 = calc_threshold(fitslist[varr])
             #optstarlist[varr], optcoolist[varr] = iterate_part(fitslist[varr], param, threshold1)
-            optstarlist[varr], optcoolist[varr], opt_l_threshold[varr] = iterate_part(fitslist[varr], param, 11, 10, 0.2)
+            optstarlist[varr], optcoolist[varr], opt_l_threshold[varr] = iterate_part(fitslist[varr], param, 20, 24, 2)
 
     if infrakey:
         for varr in infrakey:
             #threshold1 = calc_threshold(fitslist[varr])
             #infstarlist[varr], infcoolist[varr] = iterate_part(fitslist[varr], param, threshold1)
-            infstarlist[varr], infcoolist[varr], inf_l_threshold[varr] = iterate_part(fitslist[varr], param, 15, 14)    
+            infstarlist[varr], infcoolist[varr], inf_l_threshold[varr] = iterate_part(fitslist[varr], param, 14, 15)    
 
     return optstarlist, optcoolist, infstarlist, infcoolist, opt_l_threshold, inf_l_threshold
 

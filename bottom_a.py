@@ -34,20 +34,21 @@ class readheader():
         for f1 in inlist:
             
             hdu = fits.open(f1)
+            
             self.filename.append(f1)
-            self.object.append(hdu[0].header['OBJECT'])
-            self.exptime.append(hdu[0].header.get('EXPTIME') or hdu[0].header.get('EXP_TIME'))
-            self.jd.append(hdu[0].header['JD'])
-            self.mjd.append(hdu[0].header['MJD'])
-            self.ra.append(hdu[0].header['RA'])
-            self.dec.append(hdu[0].header['DEC'])
-            self.airmass.append(hdu[0].header['AIRMASS'])
-            self.offsetra.append(hdu[0].header['OFFSETRA'])
-            self.offsetde.append(hdu[0].header['OFFSETDE'])
-            self.offsetro.append(hdu[0].header['OFFSETRO'])
-            self.azimuth.append(hdu[0].header['AZIMUTH'])
-            self.altitude.append(hdu[0].header['ALTITUDE'])
-            self.rotator.append(hdu[0].header['ROTATOR'])
+            self.object.append(hdu[0].header.get('OBJECT', 'Unknown'))  # デフォルト値を設定
+            self.exptime.append(hdu[0].header.get('EXPTIME') or hdu[0].header.get('EXP_TIME', 0))  # 両方のキーを確認し、デフォルト値を設定
+            self.jd.append(hdu[0].header.get('JD', 0))  # JD が存在しない場合は 0
+            self.mjd.append(hdu[0].header.get('MJD', 0))  # MJD が存在しない場合は 0
+            self.ra.append(hdu[0].header.get('RA', '0.0'))  # デフォルト値として '0.0' を使用
+            self.dec.append(hdu[0].header.get('DEC', '0.0'))  # デフォルト値として '0.0' を使用
+            self.airmass.append(hdu[0].header.get('AIRMASS', 1.0))  # デフォルト値として 1.0 を使用
+            self.offsetra.append(hdu[0].header.get('OFFSETRA', 0))  # デフォルト値として 0 を使用
+            self.offsetde.append(hdu[0].header.get('OFFSETDE', 0))  # デフォルト値として 0 を使用
+            self.offsetro.append(hdu[0].header.get('OFFSETRO', 0))  # デフォルト値として 0 を使用
+            self.azimuth.append(hdu[0].header.get('AZIMUTH', 0.0))  # デフォルト値として 0.0 を使用
+            self.altitude.append(hdu[0].header.get('ALTITUDE', 0.0))  # デフォルト値として 0.0 を使用
+            self.rotator.append(hdu[0].header.get('ROTATOR', 0.0))  # デフォルト値として 0.0 を使用
             hdu.close()
 
 
