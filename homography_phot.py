@@ -5,6 +5,7 @@ import os
 import re
 import glob
 import statistics
+import subprocess
 from pyraf import iraf
 from astropy.io import fits
 import matplotlib.pyplot as plt
@@ -68,11 +69,6 @@ def estimate_homography(points_src, points_dst):
     return H
 
 
-def do_starfind(fitslist):
-    starnumlist, coordsfilelist, iterate = sta.starfind_center3(
-        fitslist, param, [2.5, 5.5, 1], 0, 1000
-        )
-    return coordsfilelist
 
 
 def do_estcoords(coords_file_list, H_array):
@@ -342,9 +338,9 @@ def calc_fwhm(fitsname, coof):
     y = y_indices.ravel()
 
     data_flat_sorted = np.sort(data.ravel())
-    index0 = int(len(data)/4)
+    index0 = int(len(data)/2)
     offset = np.median(data_flat_sorted[:index0])
-    offset = 0
+    #offset = 0
 
     popt_list = []
     distances_list = []
@@ -371,7 +367,7 @@ def calc_fwhm(fitsname, coof):
                 # データを保存
                 distances.append(distance)
                 intensities.append(intensity)
-                sigmas.append(1 / (distance + 10))
+                sigmas.append(1 / (distance ** 2))
                 #sigmas.append(1)
 
         distances = np.array(distances)
@@ -577,7 +573,7 @@ def main(path_2_matrix):
         second_fits = list1[1]
         print('[on-off process]')
         print('do starfind')
-        results1 = sta.starfind_center3([first_fits], pixscale[first_fits[:5]], satcount[first_fits[:5]], [4, 5, 1], 1000, 2000, 3, enable_progress_bar=False)
+        results1 = sta.starfind_center3([first_fits], pixscale[first_fits[:5]], satcount[first_fits[:5]], [4, 5, 1], 1000, 2000, 1, enable_progress_bar=False)
         starnum         = results1[0][0]
         first_coof      = results1[1][0]
         threshold_lside = results1[2][0]
@@ -642,6 +638,8 @@ def main(path_2_matrix):
         
         print('end')
     print()
+    subprocess.run(f'rm {param.work_dir}/*.coo', shell=True, stderr=subprocess.DEVNULL)
+    subprocess.run(f'rm {param.work_dir}/*.mag.1', shell=True, stderr=subprocess.DEVNULL)
 
 
     
