@@ -234,9 +234,9 @@ def refine_center_2d(fitsname, coof, tol=1e-5, max_iter=10):
     data = fits.getdata(fitsname)
     coords = read_coofile(coof)
     data_flat_sorted = np.sort(data.ravel())
-    index0 = int(len(data_flat_sorted) / 4)
-    lower_quarter = data_flat_sorted[:index0]
-    offset_fixed = np.median(lower_quarter)
+    index0 = int(len(data_flat_sorted) / 2)
+    lower = data_flat_sorted[:index0]
+    offset_fixed = np.median(lower)
 
     alpha_init = 2.8
     beta_init = 2  # 一般的な初期値
@@ -256,7 +256,7 @@ def refine_center_2d(fitsname, coof, tol=1e-5, max_iter=10):
         coords = np.vstack((x_indices.ravel(), y_indices.ravel()))
 
         x_c, y_c = (slice_image.shape[1] // 2, slice_image.shape[0] // 2)
-        A_init = np.max(slice_image)
+        A_init = np.max(slice_image) - offset_fixed
 
         for iteration in range(max_iter):
             # フィッティング対象のMoffat関数（中心を可変）
