@@ -666,7 +666,7 @@ def main(path_2_matrix):
         #ここまでが on - off
         print('[off LMT-mag process]')
         print('do starfind')
-        results1 = sta.starfind_center3([second_fits], pixscale[second_fits[:5]], satcount[second_fits[:5]], [4, 5, 1], 1000, 2000, 3, enable_progress_bar=False)
+        results1 = sta.starfind_center3([second_fits], pixscale[second_fits[:5]], satcount[second_fits[:5]], [4, 5, 1], 1000, 2000, 1.5, enable_progress_bar=False)
         starnum         = results1[0][0]
         second_coof      = results1[1][0]
         threshold_lside = results1[2][0]
