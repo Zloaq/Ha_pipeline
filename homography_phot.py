@@ -680,7 +680,7 @@ def main(path_2_matrix):
             sys.exit()
 
         print('do phot')
-        magf3 = do_phot([second_fits], [f'{second_fits[:-5]}_DETOTH.coo'], satcount[second_fits[:5]], fwhm3, coef_annulus_of, coef_dannulus_of)
+        magf3 = do_phot([second_fits], [f'{second_fits[:-5]}.coo'], satcount[second_fits[:5]], fwhm3, coef_annulus_of, coef_dannulus_of)
         if not os.path.exists(magf3[0]):
             print(f"ファイル {magf3[0]} が存在しません。")
             continue
