@@ -20,7 +20,7 @@ import bottom_a
 import starmatch_a as sta
 
 
-matrix_path   = '/Users/motomo/iriki/matrix/haon__to_haoff_240807_4.npy'
+matrix_path   = '/Users/motomo/iriki/matrix/haon2_to_haoff_IRSF_241203.npy'
 fits_pattern  = None
 
 force_fwhm_on = None
@@ -103,7 +103,7 @@ def do_estcoords(coords_file_list, H_array):
     return outlist
 
 
-def do_phot(fitslist, coofilelist, fwhm=5, coef1=2.5, coef2=3):
+def do_phot(fitslist, coofilelist, datamax='INDEF', fwhm=5, coef1=2.5, coef2=3):
     bottom_a.setparam()
     magf_list = []
     for fits, coof in zip(fitslist, coofilelist):
@@ -114,6 +114,7 @@ def do_phot(fitslist, coofilelist, fwhm=5, coef1=2.5, coef2=3):
         iraf.apphot.fitskypars.unlearn()
         iraf.apphot.centerpars.calgorithm = 'centroid'
 
+        iraf.apphot.datapars.datamax = datamax
         iraf.apphot.photpars.apertures = coef1*float(fwhm)
         iraf.apphot.fitskypars.annulus = coef2*float(fwhm)
         iraf.apphot.fitskypars.dannulus = 10
@@ -302,7 +303,12 @@ def refine_center_2d(fitsname, coof, tol=1e-5, max_iter=10):
 def moffat_1d(distances, A, alpha, beta, offset):
     return A * (1 + (distances / alpha) ** 2) ** (-beta) + offset
 
-def calc_fwhm(fitsname, coof):
+def calc_fwhm(fitsname, coof, outname=None):
+
+    satcount = {
+        'haoff':param.haoff_satcount, 'haon_':param.haon__satcount,
+        }
+
     result = []
     data = fits.getdata(fitsname)
     coords = read_coofile(coof)
@@ -338,8 +344,8 @@ def calc_fwhm(fitsname, coof):
     y = y_indices.ravel()
 
     data_flat_sorted = np.sort(data.ravel())
-    index0 = int(len(data)/2)
-    offset = np.median(data_flat_sorted[:index0])
+    index0 = int(len(data)/3)
+    offset = np.median(data_flat_sorted[:-index0])
     #offset = 0
 
     popt_list = []
@@ -358,6 +364,10 @@ def calc_fwhm(fitsname, coof):
         intensities = []
         sigmas = []
 
+        data_flat_sorted = np.sort(sliced_data.ravel())
+        index0 = int(len(sliced_data)/2)
+        offset = np.median(data_flat_sorted[:index0])
+
         # 各ピクセルの重心からの距離を計算
         for y in range(sliced_data.shape[0]):
             for x in range(sliced_data.shape[1]):
@@ -367,7 +377,7 @@ def calc_fwhm(fitsname, coof):
                 # データを保存
                 distances.append(distance)
                 intensities.append(intensity)
-                sigmas.append(1 / (distance ** 2))
+                sigmas.append(1 / (distance ** 3))
                 #sigmas.append(1)
 
         distances = np.array(distances)
@@ -428,28 +438,30 @@ def calc_fwhm(fitsname, coof):
         distances_list.append(distances)
         intensities_list.append(intensities)
 
-    sorted_data = sorted(zip(popt_list, distances_list, intensities_list), key=lambda x: x[0][0])
+    #sorted_data = sorted(zip(popt_list, distances_list, intensities_list), key=lambda x: x[0][0])
+    filterd_data = [item for item in zip(popt_list, distances_list, intensities_list) if item[0][0] <= satcount[fitsname[:5]]]
+    sorted_data = sorted(filterd_data, key=lambda x: x[0][0])
     sorted_popts, sorted_distances, sorted_intensities = zip(*sorted_data)
 
     #print(f'aaaaaaaaaa{len(stack_data)} {len(stack_locoo)}')
+    #print(sorted_popts)
 
     if len(sorted_popts) >= 5:
         fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts[-5:]]
         median_fwhm = statistics.median(fwhms)
-        plot_fit(fitsname, sorted_popts[-5:], sorted_distances[-5:], sorted_intensities[-5:], offset)
+        plot_fit(fitsname, sorted_popts[-5:], sorted_distances[-5:], sorted_intensities[-5:], offset, outname)
     elif len(sorted_popts)==0:
         print('err calc_fwhm')
         median_fwhm = None
     else:
         fwhms = [2 * popt[1] * np.sqrt(2**(1/popt[2]) - 1) for popt in sorted_popts]
         median_fwhm = statistics.median(fwhms)
-        plot_fit(fitsname, sorted_popts, sorted_distances, sorted_intensities, offset)
+        plot_fit(fitsname, sorted_popts, sorted_distances, sorted_intensities, offset, outname)
         
-
     return median_fwhm
 
 
-def plot_fit(fitsname, popt_list, distances_list, intensities_list, offset):
+def plot_fit(fitsname, popt_list, distances_list, intensities_list, offset, outname=None):
     #print('ok')
     aaaaaaa=1
     """
@@ -495,7 +507,11 @@ def plot_fit(fitsname, popt_list, distances_list, intensities_list, offset):
 
     # 画像として保存
     plt.tight_layout()
-    plt.savefig(f'fwhm_{fitsname}.png')
+    if outname == None:
+        #plt.savefig(f'fwhm_{fitsname}.png')
+        pass
+    else:
+        plt.savefig(outname)
     plt.close()
 
 def gattyanko(first_txdflist, second_txdflist, fwhm1, fwhm2):
@@ -553,6 +569,41 @@ def gattyanko(first_txdflist, second_txdflist, fwhm1, fwhm2):
                 out.write(f"{id_num:3}  {x1:>8} {y1:>8} {mag1:>7} {merr1:>5}  {x2:>8} {y2:>8} {mag2:>7} {merr2:>5}\n")
 
 
+def genkai(txdflist, fwhm):
+
+    for txdf in txdflist:
+        outputfile = f'{txdf[:-7]}_GENKAI.txt'
+        with open(txdf, 'r') as f1:
+            lines1 = f1.readlines()
+        first_data = {}
+        for line in lines1:
+            parts = line.split()
+            id_num = int(parts[0])
+            xcenter = float(parts[1]) if parts[1] != 'INDEF' else 'INDEF'
+            ycenter = float(parts[2]) if parts[2] != 'INDEF' else 'INDEF'
+            mag = parts[3] if parts[3] != 'INDEF' else 'INDEF'
+            merr = parts[4] if parts[4] != 'INDEF' else 'INDEF'
+            first_data[id_num] = (xcenter, ycenter, mag, merr)
+        with open(outputfile, 'w') as out:
+            out.write(f"\n#file: {txdf} fwhm={fwhm}\n\n")
+            out.write("#ID Xcenter1 Ycenter1 Mag1 Merr1\n\n")
+
+            # ID 順にデータを並べて書き出す
+            all_ids = sorted(first_data.keys())
+            for id_num in all_ids:
+                # first のデータ
+                if id_num in first_data:
+                    x1, y1, mag1, merr1 = first_data[id_num]
+                else:
+                    x1, y1, mag1, merr1 = 'INDEF', 'INDEF', 'INDEF', 'INDEF'
+
+
+                # 一行にまとめて書き込む
+                out.write(f"{id_num:3}  {x1:>8} {y1:>8} {mag1:>7} {merr1:>5}\n")
+
+
+
+
 
 def main(path_2_matrix):
     pixscale = {
@@ -586,8 +637,8 @@ def main(path_2_matrix):
         second_coof = refine_center_2d(second_fits, second_coof)
 
         print('calc fwhm')
-        fwhm1 = calc_fwhm(first_fits, first_coof)
-        fwhm2 = calc_fwhm(second_fits, second_coof)
+        fwhm1 = calc_fwhm(first_fits, first_coof, f'fwhm_{first_fits}.png')
+        fwhm2 = calc_fwhm(second_fits, second_coof, f'fwhm_{second_fits}_DETOTH.png')
 
         if isinstance(force_fwhm_on, (int, float)):
             fwhm1 = force_fwhm_on
@@ -598,8 +649,8 @@ def main(path_2_matrix):
             sys.exit()
 
         print('do phot')
-        magf1 = do_phot([first_fits],  [f'{first_fits[:-5]}.coo'],  fwhm1, coef_annulus_on, coef_dannulus_on)
-        magf2 = do_phot([second_fits], [f'{second_fits[:-5]}_DETOTH.coo'], fwhm2, coef_annulus_of, coef_dannulus_of)
+        magf1 = do_phot([first_fits],  [f'{first_fits[:-5]}.coo'], satcount[first_fits[:5]], fwhm1, coef_annulus_on, coef_dannulus_on)
+        magf2 = do_phot([second_fits], [f'{second_fits[:-5]}_DETOTH.coo'], satcount[second_fits[:5]], fwhm2, coef_annulus_of, coef_dannulus_of)
         if not os.path.exists(magf1[0]):
             print(f"ファイル {magf1[0]} が存在しません。")
             continue
@@ -621,7 +672,7 @@ def main(path_2_matrix):
         threshold_lside = results1[2][0]
 
         print('calc fwhm')
-        fwhm3 = calc_fwhm(second_fits, second_coof)
+        fwhm3 = calc_fwhm(second_fits, second_coof, f'fwhm_{second_fits}.png')
         if isinstance(force_fwhm_of, (int, float)):
             fwhm3 = force_fwhm_of
         if fwhm3 == None:
@@ -629,17 +680,20 @@ def main(path_2_matrix):
             sys.exit()
 
         print('do phot')
-        magf3 = do_phot([second_fits],  [f'{second_fits[:-5]}.coo'],  fwhm3, coef_annulus_of, coef_dannulus_of)
+        magf3 = do_phot([second_fits], [f'{second_fits[:-5]}_DETOTH.coo'], satcount[second_fits[:5]], fwhm3, coef_annulus_of, coef_dannulus_of)
         if not os.path.exists(magf3[0]):
             print(f"ファイル {magf3[0]} が存在しません。")
             continue
         print('do txdump')
         txdf3 = do_txdump(magf3)
+        genkai(txdf3, fwhm3)
+
         
         print('end')
     print()
-    subprocess.run(f'rm {param.work_dir}/*.coo', shell=True, stderr=subprocess.DEVNULL)
-    subprocess.run(f'rm {param.work_dir}/*.mag.1', shell=True, stderr=subprocess.DEVNULL)
+
+    #subprocess.run(f'rm {param.work_dir}/*.coo', shell=True, stderr=subprocess.DEVNULL)
+    #subprocess.run(f'rm {param.work_dir}/*.mag.1', shell=True, stderr=subprocess.DEVNULL)
 
 
     
