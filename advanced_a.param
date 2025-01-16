@@ -4,8 +4,8 @@
           
 #--------saturation_count-----------
 
-haoff_satcount       38000
-haon__satcount       38000
+haoff_satcount       24000 #38000
+haon__satcount       24000 #38000
 
 
 

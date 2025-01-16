@@ -252,6 +252,18 @@ def starfind_center3(fitslist, pixscale, satcount, searchrange=[3.0, 5.0, 0.2], 
                     centers = clustar_centroid(data, slice_list)
                     center_list.extend(centers)
 
+                #固定値---------
+                threshold = 6
+                binarized_data = binarize_data(data, threshold, rms, med)
+                labeled_image, _ = ndimage.label(binarized_data)
+                object_slices = ndimage.find_objects(labeled_image)
+                filtered_data = filter_data(data, threshold, rms, med)
+                filtered_labels, filtered_objects = filter_saturate(labeled_image, filtered_data, object_slices, header)
+                _, slice_list = detect_round_clusters(filtered_labels, filtered_objects, labeled_image)
+                if len(slice_list) != 0:
+                    centers = clustar_centroid(data, slice_list)
+                    center_list.extend(centers)
+                #--------------
 
                 unique_center_list = chose_unique_coords(center_list)
                 starnum = len(unique_center_list)

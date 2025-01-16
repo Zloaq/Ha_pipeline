@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import lstsq
 import tkinter as tk
+import pandas as pd
 import customtkinter as ctk
 from scipy.optimize import curve_fit
 
@@ -20,16 +21,16 @@ import bottom_a
 import starmatch_a as sta
 
 
-matrix_path   = '/Users/motomo/iriki/matrix/haon2_to_haoff_IRSF_241203.npy'
+matrix_path   = '/Users/motomo/iriki/matrix/haon__to_haoff_250114.npy'
 fits_pattern  = None
 
 force_fwhm_on = None
-coef_annulus_on  = 2.5
-coef_dannulus_on = 3
+coef_aperture_on  = 2.5
+coef_annulus_on = 3
 
 force_fwhm_of = None
-coef_annulus_of  = 2.5
-coef_dannulus_of = 3
+coef_aperture_of  = 2.5
+coef_annulus_of = 3
 
 
 
@@ -219,9 +220,13 @@ def adapt_matrix(coordsfile, matrix, outputfile):
     coords_with_bias = np.hstack([coords1, np.ones((coords1.shape[0], 1))])
     #print(coords_with_bias)
     transformed_coords = coords_with_bias @ matrix.T
+    #print(f'{len(lines1)}, {len(coords1)}, {len(transformed_coords)}')
     with open(outputfile, 'w') as f_out:
         for coord in transformed_coords:
             f_out.write(" ".join(map(str, coord)) + "\n")
+    with open(outputfile, 'r') as f1:
+        lines1 = f1.readlines()
+    #print(f'{len(lines1)}')
     return outputfile
 
 
@@ -248,7 +253,7 @@ def refine_center_2d(fitsname, coof, tol=1e-5, max_iter=10):
         x_start, x_end = x - 8, x + 9
         y_start, y_end = y - 8, y + 9
         if x_start < 0 or y_start < 0 or x_end > data.shape[1] or y_end > data.shape[0]:
-            #print(f"Skipping coordinates ({x}, {y}) - slice out of bounds.")
+            centroids.append(('INDEF', 'INDEF'))
             continue
         slice_image = data[y_start:y_end, x_start:x_end]
         sigma = np.ones_like(slice_image)
@@ -547,8 +552,16 @@ def gattyanko(first_txdflist, second_txdflist, fwhm1, fwhm2):
 
 
         with open(outputfile, 'w') as out:
-            out.write(f"\n#1st file: {first_txdf} fwhm={fwhm1}\n#2nd file: {second_txdf} fwhm={fwhm2}\n\n")
-            out.write("#ID Xcenter1 Ycenter1 Mag1 Merr1  Xcenter2 Ycenter2 Mag2 Merr2\n\n")
+            out.write(f"\n#1st file: {first_txdf}")
+            out.write(f"\n  #fwhm     = {fwhm1}")
+            out.write(f"\n  #aperture = {fwhm1*coef_aperture_on}")
+            out.write(f"\n  #annulus  = {fwhm1*coef_annulus_on}\n")
+            out.write(f"\n#2st file: {second_txdf}")
+            out.write(f"\n  #fwhm     = {fwhm2}")
+            out.write(f"\n  #aperture = {fwhm2*coef_aperture_of}")
+            out.write(f"\n  #annulus  = {fwhm2*coef_annulus_of}\n")
+            #out.write(f"\n#2st file: {second_txdf} \nfwhm={fwhm2}\n")
+            out.write("\n#ID Xcenter1 Ycenter1 Mag1 Merr1  Xcenter2 Ycenter2 Mag2 Merr2\n\n")
 
             # ID 順にデータを並べて書き出す
             all_ids = sorted(set(first_data.keys()).union(second_data.keys()))
@@ -624,7 +637,7 @@ def main(path_2_matrix):
         second_fits = list1[1]
         print('[on-off process]')
         print('do starfind')
-        results1 = sta.starfind_center3([first_fits], pixscale[first_fits[:5]], satcount[first_fits[:5]], [4, 5, 1], 1000, 2000, 1, enable_progress_bar=False)
+        results1 = sta.starfind_center3([first_fits], pixscale[first_fits[:5]], satcount[first_fits[:5]], [4, 5, 1], 1000, 2000, 1.5, enable_progress_bar=False)
         starnum         = results1[0][0]
         first_coof      = results1[1][0]
         threshold_lside = results1[2][0]
@@ -635,6 +648,10 @@ def main(path_2_matrix):
 
         print('refine center')
         second_coof = refine_center_2d(second_fits, second_coof)
+
+        with open(second_coof, 'r') as f1:
+            lines1 = f1.readlines()
+        #print(f'これはどう？{len(lines1)}')
 
         print('calc fwhm')
         fwhm1 = calc_fwhm(first_fits, first_coof, f'fwhm_{first_fits}.png')
@@ -649,8 +666,8 @@ def main(path_2_matrix):
             sys.exit()
 
         print('do phot')
-        magf1 = do_phot([first_fits],  [f'{first_fits[:-5]}.coo'], satcount[first_fits[:5]], fwhm1, coef_annulus_on, coef_dannulus_on)
-        magf2 = do_phot([second_fits], [f'{second_fits[:-5]}_DETOTH.coo'], satcount[second_fits[:5]], fwhm2, coef_annulus_of, coef_dannulus_of)
+        magf1 = do_phot([first_fits],  [f'{first_fits[:-5]}.coo'], satcount[first_fits[:5]], fwhm1, coef_aperture_on, coef_annulus_on)
+        magf2 = do_phot([second_fits], [f'{second_fits[:-5]}_DETOTH.coo'], satcount[second_fits[:5]], fwhm2, coef_aperture_of, coef_annulus_of)
         if not os.path.exists(magf1[0]):
             print(f"ファイル {magf1[0]} が存在しません。")
             continue
@@ -666,7 +683,7 @@ def main(path_2_matrix):
         #ここまでが on - off
         print('[off LMT-mag process]')
         print('do starfind')
-        results1 = sta.starfind_center3([second_fits], pixscale[second_fits[:5]], satcount[second_fits[:5]], [4, 5, 1], 1000, 2000, 1, enable_progress_bar=False)
+        results1 = sta.starfind_center3([second_fits], pixscale[second_fits[:5]], satcount[second_fits[:5]], [4, 5, 1], 1000, 2000, 1.5, enable_progress_bar=False)
         starnum         = results1[0][0]
         second_coof      = results1[1][0]
         threshold_lside = results1[2][0]
@@ -680,7 +697,7 @@ def main(path_2_matrix):
             sys.exit()
 
         print('do phot')
-        magf3 = do_phot([second_fits], [f'{second_fits[:-5]}.coo'], satcount[second_fits[:5]], fwhm3, coef_annulus_of, coef_dannulus_of)
+        magf3 = do_phot([second_fits], [f'{second_fits[:-5]}.coo'], satcount[second_fits[:5]], fwhm3, coef_aperture_of, coef_annulus_of)
         if not os.path.exists(magf3[0]):
             print(f"ファイル {magf3[0]} が存在しません。")
             continue
@@ -694,6 +711,61 @@ def main(path_2_matrix):
 
     #subprocess.run(f'rm {param.work_dir}/*.coo', shell=True, stderr=subprocess.DEVNULL)
     #subprocess.run(f'rm {param.work_dir}/*.mag.1', shell=True, stderr=subprocess.DEVNULL)
+
+
+def process_and_plot_from_file(file_path):
+    """
+    テキストファイルを読み取り、`Mag1 - Mag2` vs `Mag2` のプロットを作成します。
+    
+    Args:
+        file_path (str): テキストファイルのパス
+    """
+    # テキストファイルを読み取り、データを抽出
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    
+    # データ部分のみ抽出
+    data_lines = [line.strip() for line in lines if line.strip() and not line.startswith('#')]
+
+    # データをDataFrameに変換
+    data = []
+    for line in data_lines:
+        fields = line.split()
+        # INDEFをNaNに変換
+        row = []
+        for field in fields:
+            if field == 'INDEF':
+                row.append(np.nan)
+            else:
+                row.append(float(field))
+        data.append(row)
+
+    columns = ['ID', 'Xcenter1', 'Ycenter1', 'Mag1', 'Merr1', 
+               'Xcenter2', 'Ycenter2', 'Mag2', 'Merr2']
+    df = pd.DataFrame(data, columns=columns)
+
+    # Mag1とMag2の差を計算
+    df['Mag_diff'] = df['Mag1'] - df['Mag2']
+
+    # 差のエラーを計算（誤差の平方根の和として近似）
+    df['Mag_diff_err'] = np.sqrt(df['Merr1']**2 + df['Merr2']**2)
+
+    # Mag2が有効な値のデータのみを使用
+    valid_data = df[df['Mag2'].notnull()]
+
+    # プロット
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(valid_data['Mag2'], valid_data['Mag_diff'], 
+                 yerr=valid_data['Mag_diff_err'], fmt='o', ecolor='gray', 
+                 capsize=3, label='Mag1 - Mag2')
+
+    plt.xlabel('Mag2')
+    plt.ylabel('Mag1 - Mag2')
+    plt.title('Mag1 - Mag2 vs Mag2')
+    #plt.axhline(0, color='red', linestyle='--', label='Zero Line')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
 
     
@@ -717,6 +789,18 @@ if __name__ == "__main__":
             print(f'not exists {matrix_path}')
             sys.exit()
         main(matrix_path)
+
+    elif argc == 4:
+        
+        day = argvs[2]
+        objname = argvs[1]
+        param = Ha_main.readparam(argvs[2], argvs[1])
+        objparam = Ha_main.readobjfile(param, argvs[1])
+        path = os.path.join(param.work_dir)
+        iraf.chdir(path)
+        filelist = glob.glob('*DETOTH.txt')
+        for file in filelist:
+            process_and_plot_from_file(file)
 
 
     else:
